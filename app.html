@@ -910,8 +910,9 @@ function backupSheet(){
 }
 
 /* ======================= NUVEM (Firebase via REST) ======================= */
-/* Pagamento: cole aqui o link de checkout do ESM Pay. O app acrescenta ?ref=<uid>&email=<email> */
-const PAGAMENTO={url:'',preco:'',produto:'Orçamento – acesso completo'};
+/* Pagamento pelo ESM Pay (Grupo ESM). O preço fica no ESM Pay (variável ORCAMENTO_PRECO). */
+const PAGAMENTO={api:'https://esm-pay.netlify.app/api',produto:'orcamento',afiliado:()=>prefs.get('af','')};
+try{const af=new URLSearchParams(location.search).get('af');if(af&&!prefs.get('af',''))localStorage.setItem('orcapp_p_af',JSON.stringify(af.toLowerCase().replace(/[^a-z0-9_-]/g,'').slice(0,40)))}catch(e){}
 const LIMITE_TESTE=5; // documentos que dá para criar sem ativar
 const Cloud={
   cfg:{apiKey:'AIzaSyDsFeS2IBOkxbKJJ-8B58l4tfib0kHoEms',dbUrl:'https://esm-orcamento-default-rtdb.firebaseio.com',path:'orcamento_web'},
@@ -933,7 +934,7 @@ const Cloud={
   url(t){return this.db(`${this.cfg.path}/${this.user.uid}`,t)},
   async registrar(){try{await this.put('usuarios/'+this.user.uid,{email:this.user.email,ultimoAcesso:{'.sv':'timestamp'}},'PATCH')}catch(e){}},
   async checarLicenca(){if(!this.user)return null;try{const[l,a]=await Promise.all([this.get('licencas/'+this.user.uid),this.get('admins/'+this.user.uid).catch(()=>null)]);
-      this.lic=l&&l.ativo?l:null;this.admin=a===true;prefs.set('lic',this.lic);prefs.set('adm',this.admin)}catch(e){}return this.lic},
+      const antes=!!(this.lic&&this.lic.ativo);this.lic=l&&l.ativo?l:null;this.admin=a===true;if(!antes&&this.lic&&typeof toast==='function'){toast('Acesso completo liberado');setTimeout(()=>go(view),50)}prefs.set('lic',this.lic);prefs.set('adm',this.admin)}catch(e){}return this.lic},
   async resgatar(codigo){codigo=String(codigo||'').toUpperCase().replace(/[^A-Z0-9-]/g,'');if(!codigo)throw new Error('Digite o código do voucher.');
     const v=await this.get('vouchers/'+codigo).catch(()=>null);if(!v)throw new Error('Voucher não encontrado. Confira o código.');if(v.usadoPor&&v.usadoPor!==this.user.uid)throw new Error('Este voucher já foi usado.');
     const t=await this.token();const up={};up[`vouchers/${codigo}/usadoPor`]=this.user.uid;up[`vouchers/${codigo}/usadoEm`]={'.sv':'timestamp'};up[`licencas/${this.user.uid}`]={ativo:true,origem:'voucher',voucher:codigo,email:this.user.email,em:{'.sv':'timestamp'}};
@@ -975,17 +976,41 @@ function contaSheet(){
 
 function ativarSheet(motivo=''){
   if(!Cloud.user){const d=dialog(`<b>${esc(motivo||'Ative o acesso completo')}</b><div class="muted">Para ativar, entre ou crie sua conta. Depois é só pagar uma vez ou usar um voucher.</div><div class="row" style="justify-content:flex-end"><button class="btn ghost" data-n>Agora não</button><button class="btn" data-y>Entrar ou criar conta</button></div>`,d=>{$('[data-n]',d).onclick=()=>d.remove();$('[data-y]',d).onclick=()=>{d.remove();contaSheet()}});return}
-  const link=PAGAMENTO.url?`${PAGAMENTO.url}${PAGAMENTO.url.includes('?')?'&':'?'}ref=${encodeURIComponent(Cloud.user.uid)}&email=${encodeURIComponent(Cloud.user.email)}`:'';
   const el=sheet('Ativar acesso completo',`<div class="stack">
     ${motivo?`<div class="banner"><b>${esc(motivo)}</b></div>`:''}
-    <div class="card stack"><div class="eyebrow">Acesso completo</div><div style="font-family:var(--f-display);font-size:26px;font-weight:800">${PAGAMENTO.preco?esc(PAGAMENTO.preco)+' <span class="muted" style="font-size:14px;font-weight:600">pagamento único</span>':'Pagamento único'}</div>
+    <form class="card stack" id="atP"><div class="eyebrow">Acesso completo</div><div id="atPreco" style="font-family:var(--f-display);font-size:26px;font-weight:800">Pagamento único</div>
       <div class="muted">Documentos ilimitados, nuvem e todas as funções liberadas para sempre nesta conta.</div>
-      ${link?`<a class="btn block" href="${esc(link)}" target="_blank" rel="noopener">${ic('cash')}Pagar com ESM Pay</a><button class="btn ghost block" id="atChk">Já paguei, verificar</button>`:`<div class="muted" style="font-size:13px">Pagamento on-line em breve. Peça um voucher pelo WhatsApp.</div>`}</div>
+      <div id="atPagBox" class="stack"><div class="muted" style="font-size:13px">Carregando…</div></div></form>
     <form class="card stack" id="atV"><div class="eyebrow">Tenho um voucher</div><input id="atCod" placeholder="ORC-XXXX-XXXX" autocapitalize="characters" autocomplete="off" style="text-transform:uppercase;font-family:var(--f-mono)"><div id="atErr" class="muted" role="alert"></div><button class="btn block" type="submit">${ic('check')}Ativar com voucher</button></form>
     <div class="muted" style="font-size:12px">Conta: ${esc(Cloud.user.email)}</div></div>`);
   const err=m=>$('#atErr',el).textContent=m;
   $('#atV',el).onsubmit=async e=>{e.preventDefault();err('Ativando…');try{await Cloud.resgatar($('#atCod',el).value);topSheetClose();toast('Acesso completo ativado');go(view)}catch(x){err(x.message)}};
-  const ck=$('#atChk',el);if(ck)ck.onclick=async()=>{ck.textContent='Verificando…';await Cloud.checarLicenca();if(ativo()){topSheetClose();toast('Pagamento confirmado. Acesso liberado.');go(view)}else{ck.textContent='Já paguei, verificar';toast('Ainda não recebemos a confirmação. Tente de novo em 1 minuto.')}};
+  const box=$('#atPagBox',el);
+  const verificar=async btn=>{btn.textContent='Verificando…';await Cloud.checarLicenca();if(ativo()){topSheetClose();toast('Pagamento confirmado. Acesso liberado.');go(view)}else{btn.textContent='Já paguei, verificar';toast('Ainda não recebemos a confirmação. Pix leva alguns segundos; boleto até 3 dias úteis.')}};
+  (async()=>{let info;try{const r=await fetch(PAGAMENTO.api+'/publico/produtos/'+PAGAMENTO.produto);info=await r.json();if(!r.ok)throw 0}catch(e){box.innerHTML='<div class="muted" style="font-size:13px">Não consegui falar com o ESM Pay. Confira a internet ou use um voucher.</div>';return}
+    if(!info.disponivel){box.innerHTML='<div class="muted" style="font-size:13px">Pagamento on-line em breve. Peça um voucher pelo WhatsApp.</div>';return}
+    $('#atPreco',el).innerHTML=`${esc(money(info.preco))} <span class="muted" style="font-size:14px;font-weight:600">pagamento único</span>`;
+    const ult=prefs.get('pagDados',{});let metodo=ult.metodo||'pix';
+    box.innerHTML=`<label class="f">Nome completo<input id="atNome" required autocomplete="name" value="${esc(ult.nome||S.empresa.razao||'')}"></label>
+      <label class="f">CPF ou CNPJ<input id="atDoc" required inputmode="numeric" value="${esc(ult.doc||'')}"></label>
+      <div class="chips" role="radiogroup" aria-label="Forma de pagamento">${[['pix','Pix'],['boleto','Boleto'],['cartao','Cartão']].map(([k,l])=>`<button type="button" class="chip ${k===metodo?'on':''}" data-mt="${k}">${l}</button>`).join('')}</div>
+      ${PAGAMENTO.afiliado()?`<div class="muted" style="font-size:12px">Indicação: ${esc(PAGAMENTO.afiliado())}</div>`:''}
+      <div id="atPErr" class="muted" role="alert"></div>
+      <button class="btn block" type="submit">${ic('cash')}Pagar ${esc(money(info.preco))}</button><button class="btn ghost block" type="button" id="atChk">Já paguei, verificar</button>`;
+    $$('[data-mt]',box).forEach(b=>b.onclick=()=>{metodo=b.dataset.mt;$$('[data-mt]',box).forEach(x=>x.classList.toggle('on',x===b))});
+    $('#atDoc',box).oninput=e=>{const d=onlyDigits(e.target.value).slice(0,14);e.target.value=d.length<=11?d.replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d{1,2})$/,'$1-$2'):d.replace(/^(\d{2})(\d)/,'$1.$2').replace(/^(\d{2})\.(\d{3})(\d)/,'$1.$2.$3').replace(/\.(\d{3})(\d)/,'.$1/$2').replace(/(\d{4})(\d)/,'$1-$2')};
+    $('#atChk',box).onclick=e=>verificar(e.target);
+    $('#atP',el).onsubmit=async e=>{e.preventDefault();const pe=$('#atPErr',box);const nome=$('#atNome',box).value.trim(),doc=$('#atDoc',box).value;
+      if(!nome||onlyDigits(doc).length<11){pe.textContent='Preencha nome e CPF ou CNPJ. Eles vão na cobrança.';return}
+      prefs.set('pagDados',{nome,doc,metodo});pe.textContent='Gerando cobrança…';
+      const janela=window.open('','_blank');
+      try{const t=await Cloud.token();const r=await fetch(PAGAMENTO.api+'/publico/produtos/'+PAGAMENTO.produto+'/checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({idToken:t,nome,cpfCnpj:doc,metodo,afiliado:PAGAMENTO.afiliado()})});
+        const j=await r.json();if(!r.ok)throw new Error(j.erro||'Não deu para gerar a cobrança.');
+        if(j.liberado){if(janela)janela.close();await Cloud.checarLicenca();topSheetClose();toast('Esta conta já está liberada');go(view);return}
+        if(janela)janela.location.href=j.link;else location.href=j.link;
+        pe.textContent='Abrimos a página de pagamento. Depois de pagar, volte aqui: o app libera sozinho.';
+      }catch(x){if(janela)janela.close();pe.textContent=x.message||'Sem conexão. Tente de novo.'}};
+  })();
 }
 
 function novoCodigo(){const a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';const r=n=>Array.from(crypto.getRandomValues(new Uint8Array(n)),x=>a[x%a.length]).join('');return `ORC-${r(4)}-${r(4)}`}
@@ -995,12 +1020,19 @@ async function adminSheet(){
     const vl=Object.entries(vs).sort((a,b)=>(b[1].criado||0)-(a[1].criado||0));const livres=vl.filter(([,v])=>!v.usadoPor).length;
     const ul=Object.entries(us).sort((a,b)=>(b[1].ultimoAcesso||0)-(a[1].ultimoAcesso||0));
     body.innerHTML=`<div class="stack"><div class="kpis"><div class="kpi"><span class="eyebrow">Contas</span><b>${ul.length}</b></div><div class="kpi inv"><span class="eyebrow">Ativas</span><b>${Object.values(ls).filter(l=>l&&l.ativo).length}</b></div></div>
-      <div class="chips"><button class="chip ${aba==='v'?'on':''}" data-ab="v">Vouchers (${livres} livres)</button><button class="chip ${aba==='u'?'on':''}" data-ab="u">Contas</button></div>
-      ${aba==='v'?`<div class="card stack"><div class="row"><label class="f grow">Quantidade<select id="adQ">${[1,5,10,20].map(n=>`<option>${n}</option>`).join('')}</select></label><label class="f grow">Anotação<input id="adN" placeholder="Ex.: cliente João"></label></div><button class="btn" id="adGen">${ic('plus')}Gerar vouchers</button></div>
+      <div class="chips"><button class="chip ${aba==='v'?'on':''}" data-ab="v">Vouchers (${livres} livres)</button><button class="chip ${aba==='u'?'on':''}" data-ab="u">Contas</button><button class="chip ${aba==='a'?'on':''}" data-ab="a">Link de afiliado</button></div>
+      ${aba==='a'?`<div class="card stack"><div class="muted" style="font-size:14px">Cada afiliado cadastrado no ESM Pay tem um código (aparece em Afiliados). Quem instalar pelo link dele e pagar gera comissão para ele automaticamente.</div>
+        <label class="f">Código do afiliado no ESM Pay<input id="afCod" placeholder="ex.: carlos" autocapitalize="none"></label><div id="afOut" class="num" style="font-size:13px;word-break:break-all"></div>
+        <div class="g2"><button class="btn ghost" id="afCp">${ic('copy')}Copiar link</button><button class="btn ghost" id="afWa">${ic('wa')}Enviar</button></div></div>`
+      :aba==='v'?`<div class="card stack"><div class="row"><label class="f grow">Quantidade<select id="adQ">${[1,5,10,20].map(n=>`<option>${n}</option>`).join('')}</select></label><label class="f grow">Anotação<input id="adN" placeholder="Ex.: cliente João"></label></div><button class="btn" id="adGen">${ic('plus')}Gerar vouchers</button></div>
         ${vl.length?`<div class="list">${vl.map(([c,v])=>{const quem=v.usadoPor?(us[v.usadoPor]&&us[v.usadoPor].email)||'conta '+v.usadoPor.slice(0,6):'';return`<div class="li" style="cursor:default"><div class="grow"><div class="t num" style="${v.usadoPor?'text-decoration:line-through;color:var(--muted)':''}">${esc(c)}</div><div class="s">${v.usadoPor?'Usado por '+esc(quem):'Livre'}${v.nota?' · '+esc(v.nota):''}</div></div>${v.usadoPor?'':`<button class="icon" data-cp="${esc(c)}" aria-label="Copiar">${ic('copy')}</button><a class="icon" href="https://wa.me/?text=${encodeURIComponent('Seu código para ativar o app Orçamento: '+c+'\nAbra https://elysoon.github.io/orcamento-app/ → Mais → Conta e nuvem → Ativar acesso completo.')}" target="_blank" rel="noopener" aria-label="Enviar no WhatsApp">${ic('wa')}</a>`}</div>`}).join('')}</div>`:'<div class="empty">Nenhum voucher ainda.</div>'}`
       :`${ul.length?`<div class="list">${ul.map(([id,u])=>{const l=ls[id];const on=l&&l.ativo;return`<div class="li" style="cursor:default"><div class="grow"><div class="t">${esc(u.email||id)}</div><div class="s">${on?'Ativo · '+esc(l.origem||''):'Modo teste'}${u.ultimoAcesso?' · '+new Date(u.ultimoAcesso).toLocaleDateString('pt-BR'):''}</div></div><button class="btn sm ${on?'ghost':''}" data-tg="${id}" data-on="${on?1:0}">${on?'Desativar':'Liberar'}</button></div>`}).join('')}</div>`:'<div class="empty">Nenhuma conta ainda.</div>'}`}</div>`;
     $$('[data-ab]',body).forEach(b=>b.onclick=()=>{aba=b.dataset.ab;render()});
     $$('[data-cp]',body).forEach(b=>b.onclick=()=>copiar(b.dataset.cp));
+    const afc=$('#afCod',body);if(afc){const link=()=>'https://elysoon.github.io/orcamento-app/?af='+encodeURIComponent(afc.value.trim().toLowerCase());
+      afc.oninput=()=>{$('#afOut',body).textContent=afc.value.trim()?link():''};
+      $('#afCp',body).onclick=()=>{if(afc.value.trim())copiar(link())};
+      $('#afWa',body).onclick=()=>{if(afc.value.trim())window.open('https://wa.me/?text='+encodeURIComponent('Conheça o app Orçamento: orçamentos, OS, recibos e contratos em PDF direto do celular. '+link()),'_blank')}}
     const g=$('#adGen',body);if(g)g.onclick=async()=>{g.disabled=true;const q=+$('#adQ',body).value,nota=$('#adN',body).value.trim();const up={};for(let i=0;i<q;i++)up[novoCodigo()]={criado:{'.sv':'timestamp'},por:Cloud.user.uid,...(nota?{nota}:{})};
       try{await Cloud.put('vouchers',up,'PATCH');toast(q+' voucher(s) gerado(s)')}catch(e){toast(e.message)}render()};
     $$('[data-tg]',body).forEach(b=>b.onclick=async()=>{const id=b.dataset.tg,on=b.dataset.on==='1';
