@@ -15,17 +15,13 @@ App web instalável (PWA) para autônomos e pequenas empresas: orçamentos, orde
 - **Relatórios:** taxa de aprovação, ticket médio, lucro estimado, clientes e itens que mais faturam.
 - Backup/restauração em arquivo, tema claro/escuro, dados de exemplo.
 
-## Nuvem (Firebase)
-Usa o projeto `esm-orcamento` por padrão (pode trocar em Mais → Conta e nuvem → Servidor). Os dados ficam em `orcamento_web/<uid>`. Acrescente esta regra no Realtime Database:
+## Nuvem, ativação e vouchers (Firebase)
+Usa o projeto `esm-orcamento`. Os dados ficam em `orcamento_web/<uid>`. Cole os blocos de `REGRAS-FIREBASE.json` dentro de `"rules"` no Realtime Database.
 
-```json
-"orcamento_web": {
-  "$uid": {
-    ".read": "auth != null && auth.uid === $uid",
-    ".write": "auth != null && auth.uid === $uid"
-  }
-}
-```
+- **Modo teste:** sem ativação dá para criar 5 documentos (`LIMITE_TESTE`).
+- **Voucher:** o administrador gera códigos em Mais → Administração; o cliente ativa em Mais → Ativar acesso completo.
+- **Administrador:** no banco, `admins/<UID> = true`.
+- **Pagamento (ESM Pay):** preencha `PAGAMENTO.url` no `app.html`. O app abre o checkout com `?ref=<uid>&email=<email>`. Ao confirmar o pagamento, o ESM Pay grava (com credencial de servidor) `licencas/<ref> = {"ativo": true, "origem": "pagamento", "email": "...", "em": <timestamp>}`.
 
 ## Publicar no GitHub Pages
 Settings → Pages → Source: *Deploy from a branch* → Branch `main`, pasta `/ (root)` → Save. O link fica `https://<usuário>.github.io/orcamento-app/`.
