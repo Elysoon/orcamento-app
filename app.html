@@ -923,7 +923,7 @@ const Cloud={
   async entrar(email,senha){const j=await this.req(this.idt+'signInWithPassword?key='+this.cfg.apiKey,{email,password:senha,returnSecureToken:true});this.setUser(j);await this.registrar();await this.sync(true)},
   async criar(email,senha){const j=await this.req(this.idt+'signUp?key='+this.cfg.apiKey,{email,password:senha,returnSecureToken:true});this.setUser(j);try{await this.req(this.idt+'sendOobCode?key='+this.cfg.apiKey,{requestType:'VERIFY_EMAIL',idToken:j.idToken})}catch(e){}await this.registrar();await this.sync(true)},
   async reset(email){await this.req(this.idt+'sendOobCode?key='+this.cfg.apiKey,{requestType:'PASSWORD_RESET',email})},
-  setUser(j){this.user={uid:j.localId,email:j.email,idToken:j.idToken,refresh:j.refreshToken,exp:Date.now()+(+j.expiresIn-60)*1000};prefs.set('fbUser',this.user)},
+  setUser(j){if(this.user&&this.user.uid!==j.localId){this.lic=null;this.admin=false;prefs.set('lic',null);prefs.set('adm',false)}this.user={uid:j.localId,email:j.email,idToken:j.idToken,refresh:j.refreshToken,exp:Date.now()+(+j.expiresIn-60)*1000};prefs.set('fbUser',this.user)},
   sair(){this.user=null;this.lic=null;this.admin=false;prefs.set('fbUser',null);prefs.set('lic',null);prefs.set('adm',false)},
   async token(){if(!this.user)return null;if(Date.now()<this.user.exp)return this.user.idToken;
     const r=await fetch('https://securetoken.googleapis.com/v1/token?key='+this.cfg.apiKey,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'grant_type=refresh_token&refresh_token='+encodeURIComponent(this.user.refresh)});
@@ -933,8 +933,8 @@ const Cloud={
   async put(path,val,method='PUT'){const t=await this.token();const r=await fetch(this.db(path,t),{method,body:JSON.stringify(val)});if(!r.ok)throw new Error(r.status===401?'Sem permissão.':'Erro '+r.status);return r.json()},
   url(t){return this.db(`${this.cfg.path}/${this.user.uid}`,t)},
   async registrar(){try{await this.put('usuarios/'+this.user.uid,{email:this.user.email,ultimoAcesso:{'.sv':'timestamp'}},'PATCH')}catch(e){}},
-  async checarLicenca(){if(!this.user)return null;try{const[l,a]=await Promise.all([this.get('licencas/'+this.user.uid),this.get('admins/'+this.user.uid).catch(()=>null)]);
-      const antes=!!(this.lic&&this.lic.ativo);this.lic=l&&l.ativo?l:null;this.admin=a===true;if(!antes&&this.lic&&typeof toast==='function'){toast('Acesso completo liberado');setTimeout(()=>go(view),50)}prefs.set('lic',this.lic);prefs.set('adm',this.admin)}catch(e){}return this.lic},
+  async checarLicenca(){if(!this.user)return null;const uid=this.user.uid;try{const[l,a]=await Promise.all([this.get('licencas/'+uid).catch(()=>null),this.get('admins/'+uid).catch(()=>null)]);
+      if(!this.user||this.user.uid!==uid)return null;const antes=ativo();this.lic=l&&l.ativo?l:null;this.admin=a===true;if(!antes&&ativo()&&typeof toast==='function'){toast('Acesso completo liberado');setTimeout(()=>go(view),50)}prefs.set('lic',this.lic);prefs.set('adm',this.admin)}catch(e){}return this.lic},
   async resgatar(codigo){codigo=String(codigo||'').toUpperCase().replace(/[^A-Z0-9-]/g,'');if(!codigo)throw new Error('Digite o código do voucher.');
     const v=await this.get('vouchers/'+codigo).catch(()=>null);if(!v)throw new Error('Voucher não encontrado. Confira o código.');if(v.usadoPor&&v.usadoPor!==this.user.uid)throw new Error('Este voucher já foi usado.');
     const t=await this.token();const up={};up[`vouchers/${codigo}/usadoPor`]=this.user.uid;up[`vouchers/${codigo}/usadoEm`]={'.sv':'timestamp'};up[`licencas/${this.user.uid}`]={ativo:true,origem:'voucher',voucher:codigo,email:this.user.email,em:{'.sv':'timestamp'}};
@@ -946,7 +946,7 @@ const Cloud={
     this.checarLicenca()},
   async push(){if(!this.user||!navigator.onLine)return;try{const t=await this.token();const r=await fetch(this.url(t),{method:'PUT',body:JSON.stringify(S)});this.status=r.ok?'Sincronizado '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):'Sem permissão no banco';}catch(e){this.status='Sem conexão. Fica salvo no aparelho.'}}
 };
-const ativo=()=>!!(Cloud.user&&Cloud.lic&&Cloud.lic.ativo);
+const ativo=()=>!!(Cloud.user&&(Cloud.admin||(Cloud.lic&&Cloud.lic.ativo)));
 const usadosTeste=()=>S.docs.filter(d=>!d.demo).length;
 function podeCriar(){if(ativo())return true;if(usadosTeste()<LIMITE_TESTE)return true;ativarSheet(`Você já criou ${LIMITE_TESTE} documentos no modo teste.`);return false}
 function copiar(txt){try{navigator.clipboard.writeText(txt).then(()=>toast('Copiado'),()=>toast(txt))}catch(e){toast(txt)}}
@@ -1020,14 +1020,15 @@ async function adminSheet(){
   const render=async()=>{let vs={},us={},ls={};try{[vs,us,ls]=await Promise.all([Cloud.get('vouchers'),Cloud.get('usuarios'),Cloud.get('licencas')]);vs=vs||{};us=us||{};ls=ls||{}}catch(e){body.innerHTML=`<div class="empty">${esc(e.message)}</div>`;return}
     const vl=Object.entries(vs).sort((a,b)=>(b[1].criado||0)-(a[1].criado||0));const livres=vl.filter(([,v])=>!v.usadoPor).length;
     const ul=Object.entries(us).sort((a,b)=>(b[1].ultimoAcesso||0)-(a[1].ultimoAcesso||0));
-    body.innerHTML=`<div class="stack"><div class="kpis"><div class="kpi"><span class="eyebrow">Contas</span><b>${ul.length}</b></div><div class="kpi inv"><span class="eyebrow">Ativas</span><b>${Object.values(ls).filter(l=>l&&l.ativo).length}</b></div></div>
+    const adms={[Cloud.user.uid]:true};
+    body.innerHTML=`<div class="stack"><div class="muted" style="font-size:13px">Você está logado como <b style="color:var(--ink)">${esc(Cloud.user.email)}</b></div><div class="kpis"><div class="kpi"><span class="eyebrow">Aguardando</span><b>${ul.filter(([id])=>adms[id]!==true&&!(ls[id]&&ls[id].ativo)).length}</b></div><div class="kpi inv"><span class="eyebrow">Liberadas</span><b>${Object.entries(ls).filter(([k,l])=>l&&l.ativo&&adms[k]!==true).length}</b></div></div>
       <div class="chips"><button class="chip ${aba==='v'?'on':''}" data-ab="v">Vouchers (${livres} livres)</button><button class="chip ${aba==='u'?'on':''}" data-ab="u">Contas</button><button class="chip ${aba==='a'?'on':''}" data-ab="a">Link de afiliado</button></div>
       ${aba==='a'?`<div class="card stack"><div class="muted" style="font-size:14px">Cada afiliado cadastrado no ESM Pay tem um código (aparece em Afiliados). Quem instalar pelo link dele e pagar gera comissão para ele automaticamente.</div>
         <label class="f">Código do afiliado no ESM Pay<input id="afCod" placeholder="ex.: carlos" autocapitalize="none"></label><div id="afOut" class="num" style="font-size:13px;word-break:break-all"></div>
         <div class="g2"><button class="btn ghost" id="afCp">${ic('copy')}Copiar link</button><button class="btn ghost" id="afWa">${ic('wa')}Enviar</button></div></div>`
       :aba==='v'?`<div class="card stack"><div class="row"><label class="f grow">Quantidade<select id="adQ">${[1,5,10,20].map(n=>`<option>${n}</option>`).join('')}</select></label><label class="f grow">Anotação<input id="adN" placeholder="Ex.: cliente João"></label></div><button class="btn" id="adGen">${ic('plus')}Gerar vouchers</button></div>
         ${vl.length?`<div class="list">${vl.map(([c,v])=>{const quem=v.usadoPor?(us[v.usadoPor]&&us[v.usadoPor].email)||'conta '+v.usadoPor.slice(0,6):'';return`<div class="li" style="cursor:default"><div class="grow"><div class="t num" style="${v.usadoPor?'text-decoration:line-through;color:var(--muted)':''}">${esc(c)}</div><div class="s">${v.usadoPor?'Usado por '+esc(quem):'Livre'}${v.nota?' · '+esc(v.nota):''}</div></div>${v.usadoPor?'':`<button class="icon" data-cp="${esc(c)}" aria-label="Copiar">${ic('copy')}</button><a class="icon" href="https://wa.me/?text=${encodeURIComponent('Seu código para ativar o app Orçamento: '+c+'\nAbra https://elysoon.github.io/orcamento-app/ → Mais → Conta e nuvem → Ativar acesso completo.')}" target="_blank" rel="noopener" aria-label="Enviar no WhatsApp">${ic('wa')}</a>`}</div>`}).join('')}</div>`:'<div class="empty">Nenhum voucher ainda.</div>'}`
-      :`${ul.length?`<div class="list">${ul.map(([id,u])=>{const l=ls[id];const on=l&&l.ativo;return`<div class="li" style="cursor:default"><div class="grow"><div class="t">${esc(u.email||id)}</div><div class="s">${on?'Ativo · '+esc(l.origem||''):'Modo teste'}${u.ultimoAcesso?' · '+new Date(u.ultimoAcesso).toLocaleDateString('pt-BR'):''}</div></div><button class="btn sm ${on?'ghost':''}" data-tg="${id}" data-on="${on?1:0}">${on?'Desativar':'Liberar'}</button></div>`}).join('')}</div>`:'<div class="empty">Nenhuma conta ainda.</div>'}`}</div>`;
+      :`${ul.length?`<div class="list">${ul.map(([id,u])=>{const l=ls[id];const on=l&&l.ativo;const adm=adms[id]===true;const eu=id===Cloud.user.uid;if(adm)return`<div class="li" style="cursor:default"><div class="grow"><div class="t">${esc(u.email||id)}${eu?' (você)':''}</div><div class="s">Administrador · acesso completo</div></div></div>`;return`<div class="li" style="cursor:default"><div class="grow"><div class="t">${esc(u.email||id)}${eu?' (você)':''}</div><div class="s">${on?'Liberado · '+esc({manual:'por você',voucher:'por voucher',pagamento:'por pagamento'}[l.origem]||l.origem||''):'Aguardando liberação'}${u.ultimoAcesso?' · '+new Date(u.ultimoAcesso).toLocaleDateString('pt-BR'):''}</div></div><button class="btn sm ${on?'ghost':''}" data-tg="${id}" data-on="${on?1:0}">${on?'Desativar':'Liberar'}</button></div>`}).join('')}</div>`:'<div class="empty">Nenhuma conta ainda.</div>'}`}</div>`;
     $$('[data-ab]',body).forEach(b=>b.onclick=()=>{aba=b.dataset.ab;render()});
     $$('[data-cp]',body).forEach(b=>b.onclick=()=>copiar(b.dataset.cp));
     const afc=$('#afCod',body);if(afc){const link=()=>'https://elysoon.github.io/orcamento-app/?af='+encodeURIComponent(afc.value.trim().toLowerCase());
@@ -1036,7 +1037,7 @@ async function adminSheet(){
       $('#afWa',body).onclick=()=>{if(afc.value.trim())window.open('https://wa.me/?text='+encodeURIComponent('Conheça o app Orçamento: orçamentos, OS, recibos e contratos em PDF direto do celular. '+link()),'_blank')}}
     const g=$('#adGen',body);if(g)g.onclick=async()=>{g.disabled=true;const q=+$('#adQ',body).value,nota=$('#adN',body).value.trim();const up={};for(let i=0;i<q;i++)up[novoCodigo()]={criado:{'.sv':'timestamp'},por:Cloud.user.uid,...(nota?{nota}:{})};
       try{await Cloud.put('vouchers',up,'PATCH');toast(q+' voucher(s) gerado(s)')}catch(e){toast(e.message)}render()};
-    $$('[data-tg]',body).forEach(b=>b.onclick=async()=>{const id=b.dataset.tg,on=b.dataset.on==='1';
+    $$('[data-tg]',body).forEach(b=>b.onclick=async()=>{const id=b.dataset.tg,on=b.dataset.on==='1';b.disabled=true;b.textContent=on?'Desativando…':'Liberando…';
       try{await Cloud.put('licencas/'+id,on?{ativo:false,desativadoEm:{'.sv':'timestamp'}}:{ativo:true,origem:'manual',email:(us[id]||{}).email||'',em:{'.sv':'timestamp'}},on?'PATCH':'PUT');toast(on?'Conta desativada':'Conta liberada')}catch(e){toast(e.message)}render()});
   };
   render();
