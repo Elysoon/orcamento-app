@@ -915,7 +915,7 @@ const PAGAMENTO={api:'https://esm-pay.netlify.app/api',produto:'orcamento',afili
 try{const af=new URLSearchParams(location.search).get('af');if(af&&!prefs.get('af',''))localStorage.setItem('orcapp_p_af',JSON.stringify(af.toLowerCase().replace(/[^a-z0-9_-]/g,'').slice(0,40)))}catch(e){}
 const LIMITE_TESTE=5; // documentos que dá para criar sem ativar
 const Cloud={
-  cfg:{apiKey:'AIzaSyDsFeS2IBOkxbKJJ-8B58l4tfib0kHoEms',dbUrl:'https://esm-orcamento-default-rtdb.firebaseio.com',path:'orcamento_web'},
+  cfg:{apiKey:'AIzaSyD38iynuYkoDA8uC-W3MBvVzNhTSZ5eQFI',dbUrl:'https://orcamento-app-d3a84-default-rtdb.firebaseio.com',path:'orcamento_web'},
   user:prefs.get('fbUser',null),status:'',busy:false,lic:prefs.get('lic',null),admin:prefs.get('adm',false),
   async req(url,body){const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const j=await r.json();if(!r.ok)throw new Error(Cloud.msg(j.error&&j.error.message));return j},
   msg(c){return({EMAIL_EXISTS:'Este e-mail já tem conta. Use Entrar.',EMAIL_NOT_FOUND:'E-mail não cadastrado.',INVALID_PASSWORD:'Senha incorreta.',INVALID_LOGIN_CREDENTIALS:'E-mail ou senha incorretos.',USER_DISABLED:'Conta desativada.',TOO_MANY_ATTEMPTS_TRY_LATER:'Muitas tentativas. Espere alguns minutos.','WEAK_PASSWORD : Password should be at least 6 characters':'A senha precisa ter pelo menos 6 caracteres.',INVALID_EMAIL:'E-mail inválido.',OPERATION_NOT_ALLOWED:'Login por e-mail não está ativado no Firebase.'})[c]||('Erro: '+(c||'sem conexão'))},

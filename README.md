@@ -16,7 +16,7 @@ App web instalável (PWA) para autônomos e pequenas empresas: orçamentos, orde
 - Backup/restauração em arquivo, tema claro/escuro, dados de exemplo.
 
 ## Nuvem, ativação e vouchers (Firebase)
-Usa o projeto `esm-orcamento`. Os dados ficam em `orcamento_web/<uid>`. Cole os blocos de `REGRAS-FIREBASE.json` dentro de `"rules"` no Realtime Database.
+Usa o projeto Firebase `orcamento-app-d3a84`. Os dados ficam em `orcamento_web/<uid>`. Cole os blocos de `REGRAS-FIREBASE.json` dentro de `"rules"` no Realtime Database.
 
 - **Modo teste:** sem ativação dá para criar 5 documentos (`LIMITE_TESTE`).
 - **Voucher:** o administrador gera códigos em Mais → Administração; o cliente ativa em Mais → Ativar acesso completo.
