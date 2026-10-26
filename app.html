@@ -954,9 +954,9 @@ function copiar(txt){try{navigator.clipboard.writeText(txt).then(()=>toast('Copi
 
 function contaSheet(){
   const u=Cloud.user;
-  const licTxt=ativo()?`Acesso completo ativo${Cloud.lic.origem==='voucher'?' (voucher '+esc(Cloud.lic.voucher)+')':Cloud.lic.origem==='pagamento'?' (pago)':''}`:`Modo teste: ${Math.min(usadosTeste(),LIMITE_TESTE)} de ${LIMITE_TESTE} documentos usados`;
+  const licTxt=Cloud.admin?'Administrador: acesso completo':ativo()?`Acesso completo ativo${Cloud.lic&&Cloud.lic.origem==='voucher'?' (voucher '+esc(Cloud.lic.voucher||'')+')':Cloud.lic&&Cloud.lic.origem==='pagamento'?' (pago)':''}`:`Modo teste: ${Math.min(usadosTeste(),LIMITE_TESTE)} de ${LIMITE_TESTE} documentos usados`;
   const el=sheet(u?'Conta e nuvem':'Sua conta',u?`<div class="stack"><div class="card stack"><div class="eyebrow">Conectado</div><b style="font-size:17px">${esc(u.email)}</b><div class="muted" id="csSt">${esc(Cloud.status||'Pronto')}</div>
-      <button class="btn" id="csSync">${ic('cloud')}Sincronizar agora</button></div>
+      <div class="g2"><button class="btn" id="csSync">${ic('cloud')}Sincronizar</button><button class="btn ghost" id="csOut2">Sair / trocar conta</button></div></div>
       <div class="card stack"><div class="eyebrow">Acesso</div><b>${licTxt}</b>${ativo()?'':`<button class="btn" id="csAt">${ic('check')}Ativar acesso completo</button>`}</div>
       ${Cloud.admin?`<button class="li card" id="csAdm" style="border-radius:var(--r)">${ic('gear')}<div class="grow"><div class="t">Administração</div><div class="s">Vouchers e liberação de contas</div></div></button>`:''}
       <div class="card stack"><div class="eyebrow">Seu código de usuário</div><div class="row"><span class="num grow" style="font-size:12px;word-break:break-all">${esc(u.uid)}</span><button class="btn sm ghost" id="csUid">${ic('copy')}Copiar</button></div></div>
@@ -980,7 +980,7 @@ function contaSheet(){
       <div class="muted" style="font-size:13px;text-align:center">Sem conta, o app funciona só neste aparelho, no modo teste.</div></div>`);
   if(u){$('#csSync',el).onclick=async()=>{$('#csSt',el).textContent='Sincronizando…';await Cloud.sync();$('#csSt',el).textContent=Cloud.status};
     $('#csUid',el).onclick=()=>copiar(u.uid);const at=$('#csAt',el);if(at)at.onclick=()=>{topSheetClose();ativarSheet()};const ad=$('#csAdm',el);if(ad)ad.onclick=()=>adminSheet();
-    $('#csOut',el).onclick=async()=>{if(await ask('Sair da conta? Os dados continuam neste aparelho.',{ok:'Sair'})){Cloud.sair();topSheetClose();go(view)}};return}
+    const sairConta=async()=>{if(await ask('Sair desta conta? Depois você pode entrar com outra.',{ok:'Sair'})){Cloud.sair();topSheetClose();go(view);setTimeout(contaSheet,150)}};$('#csOut',el).onclick=sairConta;$('#csOut2',el).onclick=sairConta;return}
   const abas=$$('[data-aba]',el);
   abas.forEach(b=>b.onclick=()=>{const c=b.dataset.aba==='criar';abas.forEach(x=>x.classList.toggle('on',x===b));$('#lf',el).hidden=c;$('#cfm',el).hidden=!c;
     const de=c?$('#lE',el):$('#cE',el),para=c?$('#cE',el):$('#lE',el);if(!para.value)para.value=de.value;para.focus()});
