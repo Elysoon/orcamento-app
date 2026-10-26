@@ -22,7 +22,7 @@ Usa o projeto Firebase `orcamento-app-d3a84`. Os dados ficam em `orcamento_web/<
 - **Voucher:** o administrador gera códigos em Mais → Administração; o cliente ativa em Mais → Ativar acesso completo.
 - **Administrador:** no banco, `admins/<UID> = true`.
 - **Pagamento (ESM Pay):** o app pede a cobrança em `esm-pay.netlify.app/api/publico/produtos/orcamento/checkout` com o login do usuário; o preço é a variável `ORCAMENTO_PRECO` do ESM Pay. Pagamento aprovado libera `licencas/<uid>` sozinho.
-- **Afiliado:** link `https://elysoon.github.io/orcamento-app/?af=CODIGO` (código do afiliado no ESM Pay). A comissão sai pelo split do Asaas.
+- **Afiliado:** link `https://orcamento-rapido.pages.dev/?af=CODIGO` (código do afiliado no ESM Pay). A comissão sai pelo split do Asaas.
 
 ## Publicar no GitHub Pages
 Settings → Pages → Source: *Deploy from a branch* → Branch `main`, pasta `/ (root)` → Save. O link fica `https://<usuário>.github.io/orcamento-app/`.
