@@ -911,7 +911,7 @@ function backupSheet(){
 
 /* ======================= NUVEM (Firebase via REST) ======================= */
 /* Pagamento pelo ESM Pay (Grupo ESM). O preço fica no ESM Pay (variável ORCAMENTO_PRECO). */
-const PAGAMENTO={api:'https://esm-pay.netlify.app/api',produto:'orcamento',afiliado:()=>prefs.get('af','')};
+const PAGAMENTO={ativo:false,api:'https://esm-pay.netlify.app/api',produto:'orcamento',afiliado:()=>prefs.get('af','')}; // ativo:true liga o pagamento pelo ESM Pay
 try{const af=new URLSearchParams(location.search).get('af');if(af&&!prefs.get('af',''))localStorage.setItem('orcapp_p_af',JSON.stringify(af.toLowerCase().replace(/[^a-z0-9_-]/g,'').slice(0,40)))}catch(e){}
 const LIMITE_TESTE=5; // documentos que dá para criar sem ativar
 const Cloud={
@@ -978,7 +978,8 @@ function ativarSheet(motivo=''){
   if(!Cloud.user){const d=dialog(`<b>${esc(motivo||'Ative o acesso completo')}</b><div class="muted">Para ativar, entre ou crie sua conta. Depois é só pagar uma vez ou usar um voucher.</div><div class="row" style="justify-content:flex-end"><button class="btn ghost" data-n>Agora não</button><button class="btn" data-y>Entrar ou criar conta</button></div>`,d=>{$('[data-n]',d).onclick=()=>d.remove();$('[data-y]',d).onclick=()=>{d.remove();contaSheet()}});return}
   const el=sheet('Ativar acesso completo',`<div class="stack">
     ${motivo?`<div class="banner"><b>${esc(motivo)}</b></div>`:''}
-    <form class="card stack" id="atP"><div class="eyebrow">Acesso completo</div><div id="atPreco" style="font-family:var(--f-display);font-size:26px;font-weight:800">Pagamento único</div>
+    ${PAGAMENTO.ativo?'':`<div class="card stack"><div class="eyebrow">Acesso completo</div><div class="muted">Documentos ilimitados, nuvem e todas as funções liberadas nesta conta. Para liberar, use o voucher que você recebeu.</div></div>`}
+    <form class="card stack" id="atP" ${PAGAMENTO.ativo?'':'hidden'}><div class="eyebrow">Acesso completo</div><div id="atPreco" style="font-family:var(--f-display);font-size:26px;font-weight:800">Pagamento único</div>
       <div class="muted">Documentos ilimitados, nuvem e todas as funções liberadas para sempre nesta conta.</div>
       <div id="atPagBox" class="stack"><div class="muted" style="font-size:13px">Carregando…</div></div></form>
     <form class="card stack" id="atV"><div class="eyebrow">Tenho um voucher</div><input id="atCod" placeholder="ORC-XXXX-XXXX" autocapitalize="characters" autocomplete="off" style="text-transform:uppercase;font-family:var(--f-mono)"><div id="atErr" class="muted" role="alert"></div><button class="btn block" type="submit">${ic('check')}Ativar com voucher</button></form>
@@ -987,7 +988,7 @@ function ativarSheet(motivo=''){
   $('#atV',el).onsubmit=async e=>{e.preventDefault();err('Ativando…');try{await Cloud.resgatar($('#atCod',el).value);topSheetClose();toast('Acesso completo ativado');go(view)}catch(x){err(x.message)}};
   const box=$('#atPagBox',el);
   const verificar=async btn=>{btn.textContent='Verificando…';await Cloud.checarLicenca();if(ativo()){topSheetClose();toast('Pagamento confirmado. Acesso liberado.');go(view)}else{btn.textContent='Já paguei, verificar';toast('Ainda não recebemos a confirmação. Pix leva alguns segundos; boleto até 3 dias úteis.')}};
-  (async()=>{let info;try{const r=await fetch(PAGAMENTO.api+'/publico/produtos/'+PAGAMENTO.produto);info=await r.json();if(!r.ok)throw 0}catch(e){box.innerHTML='<div class="muted" style="font-size:13px">Não consegui falar com o ESM Pay. Confira a internet ou use um voucher.</div>';return}
+  if(PAGAMENTO.ativo)(async()=>{let info;try{const r=await fetch(PAGAMENTO.api+'/publico/produtos/'+PAGAMENTO.produto);info=await r.json();if(!r.ok)throw 0}catch(e){box.innerHTML='<div class="muted" style="font-size:13px">Não consegui falar com o ESM Pay. Confira a internet ou use um voucher.</div>';return}
     if(!info.disponivel){box.innerHTML='<div class="muted" style="font-size:13px">Pagamento on-line em breve. Peça um voucher pelo WhatsApp.</div>';return}
     $('#atPreco',el).innerHTML=`${esc(money(info.preco))} <span class="muted" style="font-size:14px;font-weight:600">pagamento único</span>`;
     const ult=prefs.get('pagDados',{});let metodo=ult.metodo||'pix';
