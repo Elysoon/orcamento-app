@@ -125,6 +125,7 @@ nav.nav button.on svg{stroke-width:2.4}
 .pair{display:flex;gap:4px;align-items:flex-end;width:100%;height:100%;justify-content:center}
 .login{min-height:100%;display:flex;flex-direction:column;justify-content:center;max-width:420px;margin:0 auto;gap:14px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:30px}
 .logo-mark{width:64px;height:64px;border-radius:18px;background:var(--hl);color:var(--hl-ink);display:grid;place-items:center;font-family:var(--f-display);font-weight:800;font-size:30px}
+.gate{position:fixed;inset:0;z-index:50;background:var(--paper);overflow-y:auto;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 .seg{display:grid;grid-template-columns:1fr 1fr;background:var(--soft);border-radius:999px;padding:4px;gap:4px}.seg button{border:0;background:transparent;border-radius:999px;padding:10px;font-weight:700;color:var(--muted);cursor:pointer;min-height:42px}.seg button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.15)}.seg button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 .preview iframe{width:100%;height:70vh;border:1px solid var(--line);border-radius:12px;background:#fff}
 hr.sep{border:0;border-top:1px solid var(--line);margin:4px 0}
@@ -307,6 +308,7 @@ const PAI={catalogo:'mais',fin:'mais'};let ultimoVoltar=0;
 const guarda=()=>{try{history.pushState({g:1},'')}catch(e){}};
 window.addEventListener('popstate',()=>{if(ignorePop>0){ignorePop--;return}
   const dlg=[...document.querySelectorAll('.dlg')].pop();if(dlg){dlg.remove();guarda();return}
+  if(document.getElementById('gate')){guarda();return}
   const top=$('#layer').lastElementChild;if(top){top.remove();if(!top._hist)guarda();return}
   if(view!=='home'){go(PAI[view]||'home');guarda();return}
   if(Date.now()-ultimoVoltar<2000){history.back();return}
@@ -338,7 +340,7 @@ function fabAction(){
     $('[data-x=cli]',d).onclick=()=>{d.remove();editCliente()};$('[data-x=ev]',d).onclick=()=>{d.remove();editEvento({})};$('[data-x=fin]',d).onclick=()=>{d.remove();editFin()};
   });
 }
-function demoBanner(){return S.demo?`<div class="banner"><div class="grow"><b>Você está vendo dados de exemplo.</b><div class="muted" style="font-size:13px">Teste à vontade. Quando for usar de verdade, apague os exemplos.</div></div><button class="btn sm" id="bxDemo">Apagar exemplos</button></div>`:''}
+function demoBanner(){return''}
 function bindDemo(m){const b=$('#bxDemo',m);if(b)b.onclick=async()=>{if(await ask('Apagar todos os dados de exemplo?',{ok:'Apagar'}))clearDemo()}}
 
 /* ======================= INÍCIO ======================= */
@@ -358,7 +360,7 @@ function vHome(m){
   m.innerHTML=`<header class="top"><div class="grow"><div class="eyebrow">${saud}</div><h1>${esc(S.empresa.nome||'Orçamento')}</h1></div>
     <button class="icon" id="hCloud" aria-label="Conta e nuvem">${ic('cloud')}</button><button class="icon" id="hCfg" aria-label="Dados da empresa">${ic('gear')}</button></header>
   ${demoBanner()}${installBanner()}
-  ${S.docs.length+S.clientes.length===0?`<div class="empty stack" style="align-items:center"><b style="color:var(--ink)">Comece pelo primeiro orçamento</b><span>Cadastre os dados da sua empresa, depois toque em + para criar orçamentos, ordens de serviço, recibos e contratos.</span><div class="row wrapr" style="justify-content:center"><button class="btn" id="hEmp">Dados da empresa</button>${Cloud.user?'':'<button class="btn ghost" id="hDemo">Ver com exemplos</button>'}</div></div>`:''}
+  ${S.docs.length+S.clientes.length===0?`<div class="empty stack" style="align-items:center"><b style="color:var(--ink)">Comece pelo primeiro orçamento</b><span>Cadastre os dados da sua empresa, depois toque em + para criar orçamentos, ordens de serviço, recibos e contratos.</span><div class="row wrapr" style="justify-content:center"><button class="btn" id="hEmp">Dados da empresa</button>${Cloud.user?'':''}</div></div>`:''}
   <div class="eyebrow" style="margin:6px 0 8px">${MESES[new Date().getMonth()]} de ${new Date().getFullYear()}</div>
   <div class="kpis">
     <div class="kpi inv"><span class="eyebrow">Recebido no mês</span><b>${money(recebido)}</b></div>
@@ -748,15 +750,15 @@ function vMais(m){
     <button class="li" id="mEmp">${ic('gear')}<div class="grow"><div class="t">Dados da empresa e do PDF</div><div class="s">Logo, contatos, assinatura, textos padrão</div></div></button>
     <button class="li" id="mConta">${ic('cloud')}<div class="grow"><div class="t">Conta e nuvem</div><div class="s">${Cloud.user?'Sincronizando como '+esc(Cloud.user.email):'Usando só neste aparelho'}</div></div></button>
     ${ativo()?'':`<button class="li" id="mAtv">${ic('check')}<div class="grow"><div class="t">Ativar acesso completo</div><div class="s">Modo teste: ${Math.min(usadosTeste(),LIMITE_TESTE)} de ${LIMITE_TESTE} documentos usados</div></div></button>`}
-    ${Cloud.admin?`<button class="li" id="mAdm">${ic('gear')}<div class="grow"><div class="t">Administração</div><div class="s">Vouchers e liberação de contas</div></div></button>`:''}
+    ${Cloud.admin?`<button class="li" id="mAdm">${ic('gear')}<div class="grow"><div class="t">Administração</div><div class="s" id="mAdmS">Liberação de contas e vouchers</div></div></button>`:''}
     <button class="li" id="mBk">${ic('dl')}<div class="grow"><div class="t">Backup e importação</div><div class="s">Salvar tudo em arquivo ou restaurar</div></div></button>
     <button class="li" id="mTema">${ic('moon')}<div class="grow"><div class="t">Tema</div><div class="s">${{auto:'Automático',light:'Claro',dark:'Escuro'}[prefs.get('tema','auto')]}</div></div></button>
     <button class="li" id="mInst">${ic('install')}<div class="grow"><div class="t">Instalar no celular</div><div class="s">Android e iPhone</div></div></button>
   </div>
-  ${S.demo?`<div style="margin-top:14px"><button class="btn danger block" id="mDemo">Apagar dados de exemplo</button></div>`:Cloud.user?'':`<div style="margin-top:14px"><button class="btn ghost block" id="mSeed">Carregar dados de exemplo</button></div>`}
+  
   <p class="muted" style="font-size:12px;text-align:center;margin-top:18px">Orçamento · versão 1.0 · seus dados ficam salvos neste aparelho${Cloud.user?' e na nuvem':''}</p>`;
   $$('[data-go]',m).forEach(b=>b.onclick=()=>go(b.dataset.go));
-  $('#mEmp',m).onclick=()=>editEmpresa();$('#mConta',m).onclick=()=>contaSheet();const ma=$('#mAtv',m);if(ma)ma.onclick=()=>ativarSheet();const md=$('#mAdm',m);if(md)md.onclick=()=>adminSheet();$('#mBk',m).onclick=()=>backupSheet();$('#mInst',m).onclick=()=>installSheet();$('#mRel',m).onclick=()=>relatorios();
+  $('#mEmp',m).onclick=()=>editEmpresa();$('#mConta',m).onclick=()=>contaSheet();const ma=$('#mAtv',m);if(ma)ma.onclick=()=>ativarSheet();const md=$('#mAdm',m);if(md){md.onclick=()=>adminSheet();contarAguardando()}$('#mBk',m).onclick=()=>backupSheet();$('#mInst',m).onclick=()=>installSheet();$('#mRel',m).onclick=()=>relatorios();
   $('#mTema',m).onclick=()=>{const o=['auto','light','dark'];const n=o[(o.indexOf(prefs.get('tema','auto'))+1)%3];prefs.set('tema',n);applyTema();vMais(m)};
   const dm=$('#mDemo',m);if(dm)dm.onclick=async()=>{if(await ask('Apagar todos os dados de exemplo?',{ok:'Apagar'}))clearDemo()};
   const sd=$('#mSeed',m);if(sd)sd.onclick=async()=>{if(S.docs.length&&!await ask('Os exemplos serão somados aos seus dados. Continuar?'))return;seedDemo();toast('Exemplos carregados');go('home')};
@@ -961,7 +963,7 @@ const Cloud={
   url(t){return this.db(`${this.cfg.path}/${this.user.uid}`,t)},
   async registrar(){try{await this.put('usuarios/'+this.user.uid,{email:this.user.email,ultimoAcesso:{'.sv':'timestamp'}},'PATCH')}catch(e){}},
   async checarLicenca(){if(!this.user)return null;const uid=this.user.uid;try{const[l,a]=await Promise.all([this.get('licencas/'+uid).catch(()=>null),this.get('admins/'+uid).catch(()=>null)]);
-      if(!this.user||this.user.uid!==uid)return null;const antes=ativo();this.lic=l&&l.ativo?l:null;this.admin=a===true;if(!antes&&ativo()&&typeof toast==='function'){toast('Acesso completo liberado');setTimeout(()=>go(view),50)}prefs.set('lic',this.lic);prefs.set('adm',this.admin)}catch(e){}return this.lic},
+      if(!this.user||this.user.uid!==uid)return null;const antes=ativo();this.lic=l&&l.ativo?l:null;this.admin=a===true;if(!antes&&ativo()&&typeof toast==='function'){toast('Acesso liberado. Bem-vindo!');setTimeout(()=>go(view),50)}if(typeof gate==='function')gate();prefs.set('lic',this.lic);prefs.set('adm',this.admin)}catch(e){}return this.lic},
   async resgatar(codigo){codigo=String(codigo||'').toUpperCase().replace(/[^A-Z0-9-]/g,'');if(!codigo)throw new Error('Digite o código do voucher.');
     const v=await this.get('vouchers/'+codigo).catch(()=>null);if(!v)throw new Error('Voucher não encontrado. Confira o código.');if(v.usadoPor&&v.usadoPor!==this.user.uid)throw new Error('Este voucher já foi usado.');
     const t=await this.token();const up={};up[`vouchers/${codigo}/usadoPor`]=this.user.uid;up[`vouchers/${codigo}/usadoEm`]={'.sv':'timestamp'};up[`licencas/${this.user.uid}`]={ativo:true,origem:'voucher',voucher:codigo,email:this.user.email,em:{'.sv':'timestamp'}};
@@ -1013,7 +1015,7 @@ function contaSheet(){
       <div class="muted" style="font-size:13px;text-align:center">Sem conta, o app funciona só neste aparelho, no modo teste.</div></div>`);
   if(u){$('#csSync',el).onclick=async()=>{$('#csSt',el).textContent='Sincronizando…';await Cloud.sync();$('#csSt',el).textContent=Cloud.status};
     $('#csUid',el).onclick=()=>copiar(u.uid);const at=$('#csAt',el);if(at)at.onclick=()=>{topSheetClose();ativarSheet()};const ad=$('#csAdm',el);if(ad)ad.onclick=()=>adminSheet();
-    const sairConta=async()=>{if(!navigator.onLine){toast('Conecte na internet para sair: assim nada fica sem salvar na nuvem.');return}if(await ask('Sair desta conta? Seus dados ficam guardados na nuvem e saem deste aparelho. Para ver de novo, é só entrar.',{ok:'Sair'})){await Cloud.sairEnviando();topSheetClose();go('home');setTimeout(contaSheet,150)}};$('#csOut',el).onclick=sairConta;$('#csOut2',el).onclick=sairConta;return}
+    const sairConta=async()=>{if(!navigator.onLine){toast('Conecte na internet para sair: assim nada fica sem salvar na nuvem.');return}if(await ask('Sair desta conta? Seus dados ficam guardados na nuvem e saem deste aparelho. Para ver de novo, é só entrar.',{ok:'Sair'})){await Cloud.sairEnviando();$$('#layer .sheet').forEach(x=>x.remove());go('home');gate()}};$('#csOut',el).onclick=sairConta;$('#csOut2',el).onclick=sairConta;return}
   const abas=$$('[data-aba]',el);
   abas.forEach(b=>b.onclick=()=>{const c=b.dataset.aba==='criar';abas.forEach(x=>x.classList.toggle('on',x===b));$('#lf',el).hidden=c;$('#cfm',el).hidden=!c;
     const de=c?$('#lE',el):$('#cE',el),para=c?$('#cE',el):$('#lE',el);if(!para.value)para.value=de.value;para.focus()});
@@ -1109,11 +1111,67 @@ async function installSheet(){
     <div class="card stack"><b>Computador</b><div class="muted">No Chrome ou Edge, clique no ícone de instalar na barra de endereço.</div></div></div>`);
 }
 
+/* ======================= porta de entrada ======================= */
+// Sem conta: tela de Entrar / Criar conta. Com conta ainda não liberada: tela de espera.
+let gateTimer=null;
+function gate(){
+  const old=$('#gate');const precisa=!Cloud.user?'login':!ativo()?'espera':null;
+  if(!precisa){if(old){old.remove();clearInterval(gateTimer);gateTimer=null}return}
+  if(old&&old.dataset.v===precisa)return;
+  if(old)old.remove();clearInterval(gateTimer);gateTimer=null;
+  const g=document.createElement('div');g.id='gate';g.className='gate';g.dataset.v=precisa;document.body.appendChild(g);
+  if(precisa==='login')gateLogin(g);else gateEspera(g);
+}
+function gateLogin(g){
+  g.innerHTML=`<div class="login">
+    <div class="row"><div class="logo-mark" style="width:52px;height:52px;font-size:24px">O</div><div><div class="eyebrow">Orçamento</div><b style="font-family:var(--f-display);font-size:20px">Orçamentos e recibos em PDF</b></div></div>
+    <div class="seg" role="tablist"><button type="button" role="tab" class="on" data-aba="entrar">Entrar</button><button type="button" role="tab" data-aba="criar">Criar conta</button></div>
+    <form class="card stack" id="gL"><div><b style="font-size:17px">Já tenho conta</b><div class="muted" style="font-size:14px">Entre com o e-mail e a senha que você cadastrou.</div></div>
+      <label class="f">E-mail<input id="gLE" type="email" required autocomplete="email" inputmode="email"></label>
+      <label class="f">Senha<input id="gLS" type="password" required minlength="6" autocomplete="current-password"></label>
+      <div id="gLErr" class="muted" role="alert"></div>
+      <button class="btn block" type="submit">Entrar</button>
+      <button class="btn ghost sm" type="button" id="gLRes" style="align-self:center">Esqueci minha senha</button></form>
+    <form class="card stack" id="gC" hidden><div><b style="font-size:17px">Criar uma conta nova</b><div class="muted" style="font-size:14px">Depois de criar, sua conta passa por uma liberação rápida antes do primeiro uso.</div></div>
+      <label class="f">E-mail<input id="gCE" type="email" required autocomplete="email" inputmode="email"></label>
+      <label class="f">Senha (mínimo 6 caracteres)<input id="gCS" type="password" required minlength="6" autocomplete="new-password"></label>
+      <label class="f">Repita a senha<input id="gCS2" type="password" required minlength="6" autocomplete="new-password"></label>
+      <div id="gCErr" class="muted" role="alert"></div>
+      <button class="btn block" type="submit">Criar conta</button></form></div>`;
+  const abas=$$('[data-aba]',g);
+  abas.forEach(b=>b.onclick=()=>{const c=b.dataset.aba==='criar';abas.forEach(x=>x.classList.toggle('on',x===b));$('#gL',g).hidden=c;$('#gC',g).hidden=!c;
+    const de=c?$('#gLE',g):$('#gCE',g),para=c?$('#gCE',g):$('#gLE',g);if(!para.value)para.value=de.value;para.focus()});
+  const lerr=m=>$('#gLErr',g).textContent=m,cerr=m=>$('#gCErr',g).textContent=m;
+  $('#gL',g).onsubmit=async e=>{e.preventDefault();lerr('Entrando…');try{await Cloud.entrar($('#gLE',g).value.trim(),$('#gLS',g).value);await Cloud.checarLicenca();gate();go('home')}catch(x){lerr(x.message)}};
+  $('#gLRes',g).onclick=async()=>{const em=$('#gLE',g).value.trim();if(!em){lerr('Digite seu e-mail no campo acima e toque de novo em "Esqueci minha senha".');return}try{await Cloud.reset(em);lerr('Enviamos um link para '+em+' para criar uma senha nova.')}catch(x){lerr(x.message)}};
+  $('#gC',g).onsubmit=async e=>{e.preventDefault();const em=$('#gCE',g).value.trim(),s1=$('#gCS',g).value,s2=$('#gCS2',g).value;
+    if(s1.length<6){cerr('A senha precisa ter pelo menos 6 caracteres.');return}if(s1!==s2){cerr('As duas senhas não estão iguais.');return}
+    cerr('Criando conta…');try{await Cloud.criar(em,s1);await Cloud.checarLicenca();gate();go('home')}catch(x){cerr(x.message)}};
+}
+function gateEspera(g){
+  g.innerHTML=`<div class="login">
+    <div class="logo-mark" style="width:52px;height:52px;font-size:24px">O</div>
+    <div><div class="eyebrow">Conta criada</div><h1 style="font-family:var(--f-display);font-size:28px;margin:4px 0 8px;letter-spacing:-.02em;text-wrap:balance">Aguardando liberação</h1>
+    <p class="muted" style="margin:0">Sua conta <b style="color:var(--ink)">${esc(Cloud.user.email)}</b> foi recebida. Assim que ela for liberada, o app abre aqui sozinho.</p></div>
+    <button class="btn block" id="gChk">${ic('check')}Verificar agora</button>
+    <form class="card stack" id="gV"><div class="eyebrow">Recebeu um voucher?</div><input id="gCod" placeholder="ORC-XXXX-XXXX" autocapitalize="characters" autocomplete="off" style="text-transform:uppercase;font-family:var(--f-mono)"><div id="gVErr" class="muted" role="alert"></div><button class="btn ghost block" type="submit">Ativar com voucher</button></form>
+    <button class="btn ghost sm" id="gOut" style="align-self:center">Sair e entrar com outra conta</button></div>`;
+  const chk=async btn=>{if(btn)btn.textContent='Verificando…';await Cloud.checarLicenca();if(!ativo()&&btn){btn.innerHTML=ic('check')+'Verificar agora';toast('Ainda aguardando liberação.')}};
+  $('#gChk',g).onclick=e=>chk(e.currentTarget);
+  $('#gV',g).onsubmit=async e=>{e.preventDefault();const er=$('#gVErr',g);er.textContent='Ativando…';try{await Cloud.resgatar($('#gCod',g).value);gate()}catch(x){er.textContent=x.message}};
+  $('#gOut',g).onclick=async()=>{if(await ask('Sair desta conta?',{ok:'Sair'})){Cloud.sair();S=blank();save(false);gate()}};
+  gateTimer=setInterval(()=>{if(document.visibilityState==='visible')chk(null)},15000);
+}
+// Administrador: mostra em Mais quantas contas aguardam liberação.
+async function contarAguardando(){if(!Cloud.admin)return;try{const[us,ls]=await Promise.all([Cloud.get('usuarios'),Cloud.get('licencas')]);
+  const n=Object.keys(us||{}).filter(id=>id!==Cloud.user.uid&&!((ls||{})[id]&&ls[id].ativo)).length;const el=$('#mAdmS');if(el)el.innerHTML=n?`<b style="color:var(--ink)">${n} ${n===1?'conta aguardando':'contas aguardando'} liberação</b>`:'Nenhuma conta aguardando';}catch(e){}}
+
 /* ======================= início ======================= */
 function boot(){
   load();applyTema();shell();
   try{history.replaceState({base:1},'')}catch(e){}guarda();
-  if(!prefs.get('visto',false)&&!S.docs.length&&!S.clientes.length){welcome()}
+  if(S.demo){S=blank();save(false)}
+  gate();
   go(view);
   try{const nv=new URLSearchParams(location.search).get('novo');if(nv&&TIPOS[nv]){prefs.set('visto',true);$$('#layer .sheet').forEach(x=>x.remove());novoDoc(nv)}}catch(e){}
   if('serviceWorker'in navigator&&location.protocol==='https:'){navigator.serviceWorker.register('sw.js').catch(()=>{})}
@@ -1121,14 +1179,6 @@ function boot(){
   if(Cloud.user){Cloud.registrar();Cloud.sync()}
   window.addEventListener('online',()=>Cloud.push());
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&Cloud.user)Cloud.sync()});
-}
-function welcome(){
-  const d=document.createElement('div');d.className='sheet';d.innerHTML=`<div class="login">
-    <div class="logo-mark">O</div><div><div class="eyebrow">Bem-vindo</div><h1 style="font-family:var(--f-display);font-size:30px;margin:4px 0 8px;letter-spacing:-.02em;text-wrap:balance">Orçamentos, ordens de serviço e recibos em PDF, direto do celular.</h1>
-    <p class="muted" style="margin:0">Cadastre clientes e o seu catálogo, monte o documento em segundos, colete a assinatura na tela e envie pelo WhatsApp. Agenda e financeiro no mesmo lugar.</p></div>
-    <button class="btn block" id="wDemo">Ver com dados de exemplo</button><button class="btn ghost block" id="wZero">Começar do zero</button><button class="btn ghost block" id="wLogin">${ic('cloud')}Entrar na minha conta</button></div>`;
-  $('#layer').appendChild(d);const done=()=>{prefs.set('visto',true);d.remove()};
-  $('#wDemo',d).onclick=()=>{done();seedDemo();go('home')};$('#wZero',d).onclick=()=>{done();go('home');editEmpresa()};$('#wLogin',d).onclick=()=>{done();contaSheet()};
 }
 boot();
 </script>
