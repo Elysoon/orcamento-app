@@ -294,7 +294,15 @@ function sheet(title,html,{actions='',onClose}={}){
 }
 let ignorePop=0;
 function closeSheet(el){if(!el||!el.isConnected)return;el.remove();if(el._hist){ignorePop++;try{history.back()}catch(e){ignorePop--}}}
-window.addEventListener('popstate',()=>{if(ignorePop>0){ignorePop--;return}const top=$('#layer').lastElementChild;if(top&&top._hist)top.remove();else if(top)top.remove()});
+/* Botão voltar do Android/navegador: fecha o que está aberto, volta de aba e só sai com dois toques no Início. */
+const PAI={catalogo:'mais',fin:'mais'};let ultimoVoltar=0;
+const guarda=()=>{try{history.pushState({g:1},'')}catch(e){}};
+window.addEventListener('popstate',()=>{if(ignorePop>0){ignorePop--;return}
+  const dlg=[...document.querySelectorAll('.dlg')].pop();if(dlg){dlg.remove();guarda();return}
+  const top=$('#layer').lastElementChild;if(top){top.remove();if(!top._hist)guarda();return}
+  if(view!=='home'){go(PAI[view]||'home');guarda();return}
+  if(Date.now()-ultimoVoltar<2000){history.back();return}
+  ultimoVoltar=Date.now();toast('Toque em voltar de novo para sair');guarda()});
 function topSheetClose(){closeSheet($('#layer').lastElementChild)}
 function ask(msg,{ok='Confirmar',cancel='Cancelar',danger=false}={}){return new Promise(res=>{
   const d=document.createElement('div');d.className='dlg';d.innerHTML=`<div class="box"><div style="font-weight:600">${esc(msg)}</div><div class="row" style="justify-content:flex-end"><button class="btn ghost" data-n>${esc(cancel)}</button><button class="btn ${danger?'':''}" data-y>${esc(ok)}</button></div></div>`;
@@ -1079,6 +1087,7 @@ async function installSheet(){
 /* ======================= início ======================= */
 function boot(){
   load();applyTema();shell();
+  try{history.replaceState({base:1},'')}catch(e){}guarda();
   if(!prefs.get('visto',false)&&!S.docs.length&&!S.clientes.length){welcome()}
   go(view);
   try{const nv=new URLSearchParams(location.search).get('novo');if(nv&&TIPOS[nv]){prefs.set('visto',true);$$('#layer .sheet').forEach(x=>x.remove());novoDoc(nv)}}catch(e){}
