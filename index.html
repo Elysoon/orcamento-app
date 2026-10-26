@@ -358,7 +358,7 @@ function vHome(m){
   m.innerHTML=`<header class="top"><div class="grow"><div class="eyebrow">${saud}</div><h1>${esc(S.empresa.nome||'Orçamento')}</h1></div>
     <button class="icon" id="hCloud" aria-label="Conta e nuvem">${ic('cloud')}</button><button class="icon" id="hCfg" aria-label="Dados da empresa">${ic('gear')}</button></header>
   ${demoBanner()}${installBanner()}
-  ${S.docs.length+S.clientes.length===0?`<div class="empty stack" style="align-items:center"><b style="color:var(--ink)">Comece pelo primeiro orçamento</b><span>Cadastre os dados da sua empresa, depois toque em + para criar orçamentos, ordens de serviço, recibos e contratos.</span><div class="row wrapr" style="justify-content:center"><button class="btn" id="hEmp">Dados da empresa</button><button class="btn ghost" id="hDemo">Ver com exemplos</button></div></div>`:''}
+  ${S.docs.length+S.clientes.length===0?`<div class="empty stack" style="align-items:center"><b style="color:var(--ink)">Comece pelo primeiro orçamento</b><span>Cadastre os dados da sua empresa, depois toque em + para criar orçamentos, ordens de serviço, recibos e contratos.</span><div class="row wrapr" style="justify-content:center"><button class="btn" id="hEmp">Dados da empresa</button>${Cloud.user?'':'<button class="btn ghost" id="hDemo">Ver com exemplos</button>'}</div></div>`:''}
   <div class="eyebrow" style="margin:6px 0 8px">${MESES[new Date().getMonth()]} de ${new Date().getFullYear()}</div>
   <div class="kpis">
     <div class="kpi inv"><span class="eyebrow">Recebido no mês</span><b>${money(recebido)}</b></div>
@@ -753,7 +753,7 @@ function vMais(m){
     <button class="li" id="mTema">${ic('moon')}<div class="grow"><div class="t">Tema</div><div class="s">${{auto:'Automático',light:'Claro',dark:'Escuro'}[prefs.get('tema','auto')]}</div></div></button>
     <button class="li" id="mInst">${ic('install')}<div class="grow"><div class="t">Instalar no celular</div><div class="s">Android e iPhone</div></div></button>
   </div>
-  ${S.demo?`<div style="margin-top:14px"><button class="btn danger block" id="mDemo">Apagar dados de exemplo</button></div>`:`<div style="margin-top:14px"><button class="btn ghost block" id="mSeed">Carregar dados de exemplo</button></div>`}
+  ${S.demo?`<div style="margin-top:14px"><button class="btn danger block" id="mDemo">Apagar dados de exemplo</button></div>`:Cloud.user?'':`<div style="margin-top:14px"><button class="btn ghost block" id="mSeed">Carregar dados de exemplo</button></div>`}
   <p class="muted" style="font-size:12px;text-align:center;margin-top:18px">Orçamento · versão 1.0 · seus dados ficam salvos neste aparelho${Cloud.user?' e na nuvem':''}</p>`;
   $$('[data-go]',m).forEach(b=>b.onclick=()=>go(b.dataset.go));
   $('#mEmp',m).onclick=()=>editEmpresa();$('#mConta',m).onclick=()=>contaSheet();const ma=$('#mAtv',m);if(ma)ma.onclick=()=>ativarSheet();const md=$('#mAdm',m);if(md)md.onclick=()=>adminSheet();$('#mBk',m).onclick=()=>backupSheet();$('#mInst',m).onclick=()=>installSheet();$('#mRel',m).onclick=()=>relatorios();
@@ -931,6 +931,15 @@ function backupSheet(){
 const PAGAMENTO={ativo:false,api:'https://esm-pay.netlify.app/api',produto:'orcamento',afiliado:()=>prefs.get('af','')}; // ativo:true liga o pagamento pelo ESM Pay
 try{const af=new URLSearchParams(location.search).get('af');if(af&&!prefs.get('af',''))localStorage.setItem('orcapp_p_af',JSON.stringify(af.toLowerCase().replace(/[^a-z0-9_-]/g,'').slice(0,40)))}catch(e){}
 const LIMITE_TESTE=5; // documentos que dá para criar sem ativar
+function normalizar(o){const x=Object.assign(blank(),o);x.empresa=Object.assign(blank().empresa,o.empresa||{});x.seq=Object.assign(blank().seq,o.seq||{});['clientes','catalogo','docs','agenda','fin'].forEach(k=>{if(!Array.isArray(x[k]))x[k]=Object.values(x[k]||{})});x.docs.forEach(d=>{['itens','fotos'].forEach(k=>{if(!Array.isArray(d[k]))d[k]=Object.values(d[k]||{})})});return x}
+const temDados=x=>['clientes','catalogo','docs','agenda','fin'].some(k=>(x[k]||[]).some(i=>!i.demo))||!!(x.empresa&&x.empresa.nome&&x.empresa.nome!=='Sua Empresa');
+// Junta os dados de teste do aparelho com os da conta: nada é apagado; documentos novos ganham número na sequência da conta.
+function juntar(nuvem,local){const r=normalizar(nuvem);
+  ['clientes','catalogo','agenda','fin'].forEach(k=>{const ids=new Set(r[k].map(i=>i.id));(local[k]||[]).filter(i=>!i.demo&&!ids.has(i.id)).forEach(i=>r[k].push(i))});
+  const ids=new Set(r.docs.map(d=>d.id));Object.keys(r.seq).forEach(t=>{r.seq[t]=Math.max(r.seq[t],...r.docs.filter(d=>d.tipo===t).map(d=>(d.num||0)+1),1)});
+  (local.docs||[]).filter(d=>!d.demo&&!ids.has(d.id)).forEach(d=>{d.num=r.seq[d.tipo]++;r.docs.push(d)});
+  if(!r.empresa.nome||r.empresa.nome==='Sua Empresa')r.empresa=Object.assign({},local.empresa);
+  r.updatedAt=Date.now();return r}
 const Cloud={
   cfg:{apiKey:'AIzaSyD38iynuYkoDA8uC-W3MBvVzNhTSZ5eQFI',dbUrl:'https://orcamento-app-d3a84-default-rtdb.firebaseio.com',path:'orcamento_web'},
   user:prefs.get('fbUser',null),status:'',busy:false,lic:prefs.get('lic',null),admin:prefs.get('adm',false),
@@ -941,6 +950,7 @@ const Cloud={
   async criar(email,senha){const j=await this.req(this.idt+'signUp?key='+this.cfg.apiKey,{email,password:senha,returnSecureToken:true});this.setUser(j);try{await this.req(this.idt+'sendOobCode?key='+this.cfg.apiKey,{requestType:'VERIFY_EMAIL',idToken:j.idToken})}catch(e){}await this.registrar();await this.sync(true)},
   async reset(email){await this.req(this.idt+'sendOobCode?key='+this.cfg.apiKey,{requestType:'PASSWORD_RESET',email})},
   setUser(j){if(this.user&&this.user.uid!==j.localId){this.lic=null;this.admin=false;prefs.set('lic',null);prefs.set('adm',false)}this.user={uid:j.localId,email:j.email,idToken:j.idToken,refresh:j.refreshToken,exp:Date.now()+(+j.expiresIn-60)*1000};prefs.set('fbUser',this.user)},
+  async sairEnviando(){if(this.user&&S.dono===this.user.uid){try{const t=await this.token();await fetch(this.url(t),{method:'PUT',body:JSON.stringify(S)})}catch(e){}}S=blank();save(false);this.sair()},
   sair(){this.user=null;this.lic=null;this.admin=false;prefs.set('fbUser',null);prefs.set('lic',null);prefs.set('adm',false)},
   async token(){if(!this.user)return null;if(Date.now()<this.user.exp)return this.user.idToken;
     const r=await fetch('https://securetoken.googleapis.com/v1/token?key='+this.cfg.apiKey,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'grant_type=refresh_token&refresh_token='+encodeURIComponent(this.user.refresh)});
@@ -956,12 +966,19 @@ const Cloud={
     const v=await this.get('vouchers/'+codigo).catch(()=>null);if(!v)throw new Error('Voucher não encontrado. Confira o código.');if(v.usadoPor&&v.usadoPor!==this.user.uid)throw new Error('Este voucher já foi usado.');
     const t=await this.token();const up={};up[`vouchers/${codigo}/usadoPor`]=this.user.uid;up[`vouchers/${codigo}/usadoEm`]={'.sv':'timestamp'};up[`licencas/${this.user.uid}`]={ativo:true,origem:'voucher',voucher:codigo,email:this.user.email,em:{'.sv':'timestamp'}};
     const r=await fetch(`${this.cfg.dbUrl}/.json?auth=${t}`,{method:'PATCH',body:JSON.stringify(up)});if(!r.ok)throw new Error('Não deu para ativar. Este voucher pode já ter sido usado.');await this.checarLicenca();return true},
-  async sync(first){if(!this.user||this.busy)return;this.busy=true;try{const t=await this.token();const r=await fetch(this.url(t));if(r.status===401)throw new Error('Sem permissão no banco. Publique as regras do Firebase.');const remoto=await r.json();
-      if(remoto&&remoto.updatedAt>S.updatedAt){S=Object.assign(blank(),remoto);['clientes','catalogo','docs','agenda','fin'].forEach(k=>{if(!Array.isArray(S[k]))S[k]=Object.values(S[k]||{})});S.docs.forEach(d=>{['itens','fotos'].forEach(k=>{if(!Array.isArray(d[k]))d[k]=Object.values(d[k]||{})})});save(false);go(view)}
-      else if(!remoto||S.updatedAt>remoto.updatedAt){await fetch(this.url(t),{method:'PUT',body:JSON.stringify(S)})}
+  // Sincronização: os dados do aparelho pertencem a uma conta (S.dono).
+  // Mesma conta: vale a versão mais nova. Conta diferente: o aparelho recebe os dados da nuvem.
+  // Dados de teste sem conta: são juntados aos da nuvem, sem apagar nada.
+  async sync(first){if(!this.user||this.busy)return;this.busy=true;const uid=this.user.uid;try{const t=await this.token();const r=await fetch(this.url(t));if(r.status===401)throw new Error('Sem permissão no banco. Publique as regras do Firebase.');let remoto=await r.json();
+      if(remoto)remoto=normalizar(remoto);
+      if(S.demo){if(remoto){S=remoto;S.dono=uid;save(false);go(view)}}
+      else if(remoto&&S.dono&&S.dono!==uid){S=remoto;S.dono=uid;save(false);go(view)}
+      else if(remoto&&!S.dono&&temDados(S)&&first){S=juntar(remoto,S);S.dono=uid;save();await fetch(this.url(t),{method:'PUT',body:JSON.stringify(S)});go(view);toast('Seus dados deste aparelho foram juntados aos da conta')}
+      else if(remoto&&(remoto.updatedAt||0)>(S.updatedAt||0)){S=remoto;S.dono=uid;save(false);go(view)}
+      else{if(S.dono&&S.dono!==uid){S=blank()}S.dono=uid;save(false);await fetch(this.url(t),{method:'PUT',body:JSON.stringify(S)})}
       this.status='Sincronizado '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}catch(e){this.status=e.message||'Sem conexão. Tento de novo depois.'}finally{this.busy=false}
     this.checarLicenca()},
-  async push(){if(!this.user||!navigator.onLine)return;try{const t=await this.token();const r=await fetch(this.url(t),{method:'PUT',body:JSON.stringify(S)});this.status=r.ok?'Sincronizado '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):'Sem permissão no banco';}catch(e){this.status='Sem conexão. Fica salvo no aparelho.'}}
+  async push(){if(!this.user||!navigator.onLine||S.dono!==this.user.uid||S.demo)return;try{const t=await this.token();const r=await fetch(this.url(t),{method:'PUT',body:JSON.stringify(S)});this.status=r.ok?'Sincronizado '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):'Sem permissão no banco';}catch(e){this.status='Sem conexão. Fica salvo no aparelho.'}}
 };
 const ativo=()=>!!(Cloud.user&&(Cloud.admin||(Cloud.lic&&Cloud.lic.ativo)));
 const usadosTeste=()=>S.docs.filter(d=>!d.demo).length;
@@ -996,7 +1013,7 @@ function contaSheet(){
       <div class="muted" style="font-size:13px;text-align:center">Sem conta, o app funciona só neste aparelho, no modo teste.</div></div>`);
   if(u){$('#csSync',el).onclick=async()=>{$('#csSt',el).textContent='Sincronizando…';await Cloud.sync();$('#csSt',el).textContent=Cloud.status};
     $('#csUid',el).onclick=()=>copiar(u.uid);const at=$('#csAt',el);if(at)at.onclick=()=>{topSheetClose();ativarSheet()};const ad=$('#csAdm',el);if(ad)ad.onclick=()=>adminSheet();
-    const sairConta=async()=>{if(await ask('Sair desta conta? Depois você pode entrar com outra.',{ok:'Sair'})){Cloud.sair();topSheetClose();go(view);setTimeout(contaSheet,150)}};$('#csOut',el).onclick=sairConta;$('#csOut2',el).onclick=sairConta;return}
+    const sairConta=async()=>{if(!navigator.onLine){toast('Conecte na internet para sair: assim nada fica sem salvar na nuvem.');return}if(await ask('Sair desta conta? Seus dados ficam guardados na nuvem e saem deste aparelho. Para ver de novo, é só entrar.',{ok:'Sair'})){await Cloud.sairEnviando();topSheetClose();go('home');setTimeout(contaSheet,150)}};$('#csOut',el).onclick=sairConta;$('#csOut2',el).onclick=sairConta;return}
   const abas=$$('[data-aba]',el);
   abas.forEach(b=>b.onclick=()=>{const c=b.dataset.aba==='criar';abas.forEach(x=>x.classList.toggle('on',x===b));$('#lf',el).hidden=c;$('#cfm',el).hidden=!c;
     const de=c?$('#lE',el):$('#cE',el),para=c?$('#cE',el):$('#lE',el);if(!para.value)para.value=de.value;para.focus()});
