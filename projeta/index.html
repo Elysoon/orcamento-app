@@ -244,7 +244,9 @@ table.bt{width:100%;border-collapse:collapse;font-size:13.5px;min-width:660px}
 .pg .qsig{padding-top:70px}
 .pg .qthumb{float:left;width:40px;height:40px;object-fit:cover;border-radius:4px;margin:0 8px 2px 0;border:1px solid #e6e3dc}
 .pg .qt{table-layout:fixed;width:100%}.pg .qt th:nth-child(2){width:56px}.pg .qt th:nth-child(3),.pg .qt th:nth-child(4){width:112px}
-.pg .blk{display:flex;flex-direction:column;gap:14px}.pg .blk .sig{margin-top:0}.pg .blk .qsig{padding-top:44px}
+.pg .blk{display:flex;flex-direction:column;gap:14px}.pg .blk .sig{margin-top:0}.pg .blk .qsig{padding-top:40px}.pg .blk .qsig + .qdesc{margin-top:10px}
+.pg .sqrow{display:flex;flex-wrap:wrap;justify-content:center;gap:14px}.pg .sq{width:196px;border:1px solid #e3e0d8;border-radius:6px;overflow:hidden;background:#fff}
+.pg .sq .im{height:196px;background:#f5f4f0;display:flex;align-items:center;justify-content:center}.pg .sq img{max-width:100%;max-height:100%;object-fit:contain;display:block}.pg .sq .cap{padding:6px 8px;font-size:10px;line-height:1.35;border-top:1px solid #e3e0d8;color:#333;text-align:center}
 .pg .pgrid{display:grid;gap:12px}.pg .pgrid.c3{grid-template-columns:repeat(3,1fr)}.pg .pgrid.c2{grid-template-columns:repeat(2,1fr)}
 .pg .pgi{border:1px solid #e3e0d8;border-radius:6px;overflow:hidden;background:#fff;display:flex;flex-direction:column}
 .pg .pgi .im{background:#f5f4f0;display:flex;align-items:center;justify-content:center}.pg .pgrid.c3 .im{height:190px}.pg .pgrid.c2 .im{height:250px}
@@ -587,6 +589,10 @@ const uid=()=>Math.random().toString(36).slice(2,9);
 const today=()=>new Date().toISOString().slice(0,10);
 const fmtDate=d=>{if(!d)return"";const[y,m,dd]=d.split("-");return`${dd}/${m}/${y}`};
 let toastT;function toast(m){let t=$(".toast");if(!t){t=document.createElement("div");t.className="toast";document.body.appendChild(t)}t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2600)}
+const APP_VER="2.3.5";
+/* versão do GitHub: se a publicada for mais nova que a aberta, recarrega uma vez sem cache */
+(()=>{try{if(!(window.ESMAndroid&&location.protocol==="https:"))return;if(sessionStorage.getItem("esmp.vchk"))return;sessionStorage.setItem("esmp.vchk","1");
+ fetch(location.origin+location.pathname+"?nc="+Date.now(),{cache:"no-store"}).then(r=>r.ok?r.text():"").then(h=>{const m=h.match(/const APP_VER="([^"]+)"/);if(m&&m[1]!==APP_VER)location.replace(location.origin+location.pathname+"?t="+Date.now())}).catch(()=>{})}catch(_){}})();
 const KV=(()=>{try{return window.ESMAndroid&&ESMAndroid.kvGet?ESMAndroid:null}catch(_){return null}})();
 function ls(k,v){try{
  if(v===undefined){if(KV){let t=KV.kvGet(k);if(!t){t=localStorage.getItem(k);if(t)KV.kvSet(k,t)}return JSON.parse(t||"null")}return JSON.parse(localStorage.getItem(k))}
@@ -1791,12 +1797,13 @@ function quotePages(q){
  if(q.sinal>0||q.parc>1||showPix){const amt=en>0?en:t,code=showPix?pixPayload(co.pix,co.pixNome||co.razao||co.name,co.pixCidade||co.city||"Belem",amt,"ORC"+(q.num||"")):"",qr=code?qrData(code):"";
   H(qr?190:80,`<h5 class="qsec">Condições de pagamento</h5><div class="paybox"><div>${q.sinal>0?`<p>Entrada de <b>${q.sinal}%</b>: <b>${brl(en)}</b></p><p>Saldo: <b>${brl(rest)}</b>${q.parc>1?` em <b>${q.parc}× de ${brl(rest/q.parc)}</b>`:""}</p>`:q.parc>1?`<p>Em <b>${q.parc}× de ${brl(t/q.parc)}</b></p>`:`<p>À vista: <b>${brl(t)}</b></p>`}${showPix?`<p class="pixk">Chave Pix: <b>${esc(co.pix)}</b>${co.pixNome?` · ${esc(co.pixNome)}`:""}</p>`:""}</div>${qr?`<div class="qrw"><img src="${qr}" alt=""><span>Pix ${en>0?"da entrada":""}<br>${brl(amt)}</span></div>`:""}</div>`)}
  if(q.manut>0)H(70,`<div class="manbox"><b>Plano de manutenção mensal (opcional): ${brl(q.manut)}/mês</b>${q.manutD?`<span>${esc(q.manutD)}</span>`:""}</div>`);
- if(String(q.obs||"").trim())H(46+Math.ceil(String(q.obs).length/95)*17+(String(q.obs).match(/\n/g)||[]).length*17,`<h5 class="qsec">Condições e observações</h5><div class="note">${esc(q.obs)}</div>`);
  blocks.push({fit:(r,h,x)=>{const pt=44-(h-r)-2;return pt>=8?x.replace('class="sig qsig"',`class="sig qsig" style="padding-top:${pt}px"`):null},html:`<div class="sig qsig"><div>${co.assin?`<img src="data:image/png;base64,${co.assin}" alt="">`:""}<b>${esc(co.name)}</b>${co.resp?`<br>${esc(co.resp)}`:""}</div><div>${q.sig?`<img src="data:image/png;base64,${q.sig}" alt="">`:""}<b>Aceite do cliente</b><br>${esc(q.cliente)}</div></div>${co.desc?`<p class="qdesc">${esc(co.desc)}</p>`:""}`});
- const grid=(title,arr,cols,cap)=>{const ih=cols===3?190:250;for(let i=0;i<arr.length;i+=cols){const html=`${i?"":`<h5 class="qsec" style="margin-bottom:10px">${title}</h5>`}<div class="pgrid c${cols}">${arr.slice(i,i+cols).map(x=>`<div class="pgi"><div class="im"><img src="${x.img}" alt=""></div>${cap(x)?`<div class="cap">${cap(x)}</div>`:""}</div>`).join("")}</div>`;
-  blocks.push({html,fit:(r,h)=>{const nh=ih-(h-r)-2;return nh>=110?html.replace(/class="im"/g,`class="im" style="height:${nh}px"`):null}})}};
- grid("Fotos dos itens e serviços",its.filter(o=>o.img&&String(o.d||"").trim()),3,o=>`${o.t==="s"?"<b>Serviço:</b> ":""}${esc(o.d)}`);
- grid("Registro do local",q.fotos||[],2,f=>esc(f.cap||""));
+ if(String(q.obs||"").trim())H(46+Math.ceil(String(q.obs).length/95)*17+(String(q.obs).match(/\n/g)||[]).length*17,`<h5 class="qsec">Condições e observações</h5><div class="note">${esc(q.obs)}</div>`);
+ const grid=(title,arr,cap)=>{const S=196;for(let k=0;k<arr.length;k+=3){const row=arr.slice(k,k+3);
+  const html=`${k?"":`<h5 class="qsec" style="margin-bottom:10px">${title}</h5>`}<div class="sqrow">${row.map(x=>`<div class="sq"><div class="im"><img src="${x.img}" alt=""></div>${cap(x)?`<div class="cap">${cap(x)}</div>`:""}</div>`).join("")}</div>`;
+  blocks.push({html,fit:(r,h)=>{const n=S-(h-r)-2;return n>=120?html.replace(/class="sq"/g,`class="sq" style="width:${n}px"`).replace(/class="im"/g,`class="im" style="height:${n}px"`):null}})}};
+ grid("Fotos dos itens e serviços",its.filter(o=>o.img&&String(o.d||"").trim()),o=>`${o.t==="s"?"<b>Serviço:</b> ":""}${esc(o.d)}`);
+ grid("Registro do local",q.fotos||[],f=>esc(f.cap||""));
  const pages=packPages(blocks,head2("Orçamento",meta));
  return pages.map((p,i)=>`<div class="pg L-exec">${head2("Orçamento",meta)}<div class="bd">${p.join("")}</div>${foot(i+1,pages.length)}</div>`);
 }
@@ -2249,7 +2256,7 @@ function vCompany(){
  <div class="card stack"><h3>PDF</h3><label class="chk"><input type="checkbox" id="op_ask" ${o.ask?"checked":""}>Sempre escolher o nome do arquivo salvo</label><label class="chk"><input type="checkbox" id="op_lines" ${o.lines?"checked":""}>Linha entre os itens</label><label class="chk"><input type="checkbox" id="op_noseq" ${o.noseq?"checked":""}>Desabilitar sequência numérica do orçamento</label>
   <div class="grid2"><div><label class="lbl" for="op_cur">Moeda</label><select class="in-f" id="op_cur">${CUR_LBL.map((l,i)=>`<option value="${i}" ${o.cur===i?"selected":""}>${l}</option>`).join("")}</select></div><div><label class="lbl" for="op_seq">Último número de orçamento</label><input class="in-f" id="op_seq" inputmode="numeric" value="${DB.qseq}"></div></div></div>
  <div class="card stack"><h3>Backup e relatório ${NEW}</h3><div class="row"><button class="btn" id="e_bk">Exportar backup (.json)</button><button class="btn" id="e_rs">Restaurar backup</button><button class="btn" id="e_csv">Planilha dos orçamentos (.csv)</button></div><input type="file" id="e_rsf" accept=".json,application/json" hidden></div>
- <p class="muted" style="font-size:12.5px;text-align:center">ESM Projeta 2.3.4 · Orçamentos e projetos de CFTV · <button class="btn sm ghost" id="e_news2">Novidades</button>${window.ESMAndroid&&/^https:/.test(location.protocol)?` <button class="btn sm ghost" id="e_upd">Buscar atualização</button>`:window.ESMAndroid?` <span class="muted">(cópia do aparelho, sem internet)</span>`:""}</p>
+ <p class="muted" style="font-size:12.5px;text-align:center">ESM Projeta ${APP_VER} · Orçamentos e projetos de CFTV · <button class="btn sm ghost" id="e_news2">Novidades</button>${window.ESMAndroid&&/^https:/.test(location.protocol)?` <button class="btn sm ghost" id="e_upd">Buscar atualização</button>`:window.ESMAndroid?` <span class="muted">(cópia do aparelho, sem internet)</span>`:""}</p>
  </div></section>`;
  const map={name:"name",razao:"razao",cnpj:"cnpj",insc:"insc",phone:"phone",email:"email",site:"site",insta:"insta",city:"city",resp:"resp",end:"end",desc:"desc",pix:"pix",pixNome:"pixNome",pixCidade:"pixCidade",cond:"cond",payLink:"payLink",equipe:"equipe",checklist:"checklist",propUrl:"propUrl"};
  if($("#e_upd"))$("#e_upd").onclick=()=>location.replace(location.origin+location.pathname+"?t="+Date.now());
