@@ -90,6 +90,13 @@ textarea.in-f{resize:vertical;min-height:90px}
 .feat b{display:block;color:var(--fg);font-size:15px;margin-bottom:2px}
 
 /* folhas (modais) */
+.sugbox{position:fixed;left:0;right:0;z-index:80;background:var(--sheet);border-top:1px solid var(--line,rgba(127,127,127,.25));box-shadow:0 -10px 30px rgba(0,0,0,.25);border-radius:18px 18px 0 0;display:flex;flex-direction:column;max-width:720px;margin:0 auto}
+.sugbox .sg-h{display:flex;align-items:center;gap:10px;padding:8px 14px 6px;touch-action:none;cursor:ns-resize}
+.sugbox .sg-g{width:44px;height:5px;border-radius:3px;background:var(--muted,#888);opacity:.5;margin:0 auto}
+.sugbox .sg-n{font-size:12.5px;color:var(--muted,#888);flex:1}.sugbox .sg-x{background:none;border:0;color:var(--red);font:inherit;font-weight:700;padding:6px}
+.sugbox .sg-l{overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:0 8px 8px}
+.sugbox .sg-l button{display:block;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--line,rgba(127,127,127,.18));color:var(--fg);font:inherit;font-size:15px;padding:12px 8px;line-height:1.3}
+.sugbox .sg-l button:active{background:rgba(127,127,127,.15)}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.32);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);z-index:50;display:flex;align-items:flex-end;justify-content:center;animation:fadeIn .2s ease}
 @media (min-width:700px){.modal{align-items:center}}
 .sheet{background:var(--sheet);border-radius:22px 22px 0 0;width:100%;max-width:720px;max-height:92vh;overflow:auto;padding:22px max(18px,env(safe-area-inset-right,0px)) calc(22px + env(safe-area-inset-bottom,0px)) max(18px,env(safe-area-inset-left,0px));animation:sheetUp .32s cubic-bezier(.2,.8,.2,1)}
@@ -1676,8 +1683,8 @@ function quoteForm(q){
  $("#qf_pkon").onchange=e=>{read();if(e.target.checked){q.pacotes=["Essencial","Recomendado","Completo"];q.pkRec=1}else{q.pacotes=[];items.forEach(o=>delete o.pk)}rebuild()};
  document.querySelectorAll("[data-pkn]").forEach(i=>i.oninput=()=>{read();tot()});document.querySelectorAll("[data-pkr]").forEach(i=>i.onchange=()=>{q.pkRec=+i.dataset.pkr;tot()});
  document.querySelectorAll("[data-blank]").forEach(b=>b.onclick=()=>{read();items.push({d:"",t:b.dataset.blank,q:1,p:0});rebuild()});
- document.querySelectorAll("[data-cat]").forEach(b=>b.onclick=()=>{read();catalogPick(b.dataset.cat,it=>{const e=items.findIndex(o=>!o.d&&o.t===b.dataset.cat);const row={d:it.nome,t:b.dataset.cat,q:1,p:+it.preco||0};if(+it.custo)row.c=+it.custo;if(e>=0)items[e]=row;else items.push(row);rebuild()})});
- $("#qf_pc").onclick=()=>{read();clientPick(c=>{q.cliId=c.id;q.cliente=c.nome;q.tel=c.tel||"";q.end=[c.end,c.cidade&&c.cidade+(c.uf?" - "+c.uf:"")].filter(Boolean).join(", ");rebuild()})};
+ document.querySelectorAll("[data-cat]").forEach(b=>b.onclick=()=>{read();catalogPick(b.dataset.cat,it=>{const e=items.findIndex(o=>!o.d&&o.t===b.dataset.cat);const row={d:it.nome,t:b.dataset.cat,q:1,p:+it.preco||0};if(+it.custo)row.c=+it.custo;if(e>=0)items[e]=row;else items.push(row);QF.q=q;quoteForm(q)})});
+ $("#qf_pc").onclick=()=>{read();clientPick(c=>{q.cliId=c.id;q.cliente=c.nome;q.tel=c.tel||"";q.end=[c.end,c.cidade&&c.cidade+(c.uf?" - "+c.uf:"")].filter(Boolean).join(", ");QF.q=q;quoteForm(q);toast("Cliente: "+c.nome)})};
  $("#qf_fadd").onclick=()=>$("#qf_ff").click();
  $("#qf_ff").onchange=async e=>{read();for(const f of [...e.target.files].slice(0,8)){try{q.fotos.push({img:await shrink(f,1100,"image/jpeg",.78),cap:""})}catch(_){}}rebuild()};
  document.querySelectorAll("[data-fx]").forEach(b=>b.onclick=()=>{read();q.fotos.splice(+b.dataset.fx,1);rebuild()});
@@ -2119,6 +2126,46 @@ function equipSheet(cli,e){
  $("#es_e",m).onclick=()=>{m.remove();equipForm(cli,e)};
 }
 
+/* ================= sugestões acima do teclado (no lugar da lista do Android, que cobria a tela) ================= */
+const SG={box:null,inp:null,dl:null,h:0};
+try{SG.h=+localStorage.getItem("esmp.sugH")||0}catch(_){}
+function sgView(){const v=window.visualViewport;return v?{top:v.offsetTop,h:v.height}:{top:0,h:window.innerHeight}}
+function sgHide(){if(SG.box){SG.box.remove();SG.box=null}document.body.style.paddingBottom="";SG.inp=null}
+function sgPlace(){
+ if(!SG.box)return;const v=sgView(),h=Math.max(120,Math.min(SG.h||Math.round(v.h*.42),v.h-90));
+ SG.box.style.bottom=Math.max(0,window.innerHeight-(v.top+v.h))+"px";SG.box.style.height=h+"px";
+ document.body.style.paddingBottom=(h+40)+"px";
+ // leva o campo para logo acima da lista, para ver o que já está escrito
+ const r=SG.inp.getBoundingClientRect(),lim=v.top+v.h-h-12;
+ if(r.bottom>lim||r.top<v.top+60){let el=SG.inp.parentElement;while(el&&el!==document.body){const cs=getComputedStyle(el);if(/(auto|scroll)/.test(cs.overflowY)&&el.scrollHeight>el.clientHeight)break;el=el.parentElement}
+  const d=r.bottom-lim;(el&&el!==document.body?el:document.scrollingElement).scrollBy(0,d)}
+}
+function sgShow(){
+ const inp=SG.inp;if(!inp)return;const dl=document.getElementById(SG.dl);if(!dl){sgHide();return}
+ const q=inp.value.trim(),all=[...dl.options].map(o=>o.value);
+ const l=(q?all.filter(n=>hit(n,q)):all).slice(0,80);
+ if(!l.length||(l.length===1&&l[0]===inp.value)){if(SG.box){SG.box.remove();SG.box=null;document.body.style.paddingBottom=""}return}
+ if(!SG.box){SG.box=document.createElement("div");SG.box.className="sugbox";SG.box.innerHTML=`<div class="sg-h"><span class="sg-n"></span><span class="sg-g" style="flex:0 0 44px"></span><span style="flex:1;text-align:right"><button type="button" class="sg-x">Fechar</button></span></div><div class="sg-l"></div>`;
+  document.body.appendChild(SG.box);SG.box.addEventListener("mousedown",e=>e.preventDefault());
+  $(".sg-x",SG.box).onclick=()=>{const i=SG.inp;sgHide();if(i)i.blur()};
+  // arrastar a barrinha para cima ou para baixo muda a altura da lista
+  const hd=$(".sg-h",SG.box);hd.addEventListener("pointerdown",e=>{if(e.target.closest(".sg-x"))return;e.preventDefault();const y0=e.clientY,h0=SG.box.offsetHeight;hd.setPointerCapture(e.pointerId);
+   const mv=ev=>{SG.h=Math.max(120,Math.min(h0+(y0-ev.clientY),sgView().h-90));SG.box.style.height=SG.h+"px"};
+   const up=()=>{hd.removeEventListener("pointermove",mv);try{localStorage.setItem("esmp.sugH",SG.h)}catch(_){}sgPlace()};
+   hd.addEventListener("pointermove",mv);hd.addEventListener("pointerup",up,{once:true});hd.addEventListener("pointercancel",up,{once:true})})}
+ $(".sg-n",SG.box).textContent=l.length+(l.length>=80?"+":"")+" sugest"+(l.length>1?"ões":"ão")+" · arraste a barra";
+ const box=$(".sg-l",SG.box);box.innerHTML=l.map((n,i)=>`<button type="button" data-sg="${i}">${esc(n)}</button>`).join("");box.scrollTop=0;
+ box.querySelectorAll("[data-sg]").forEach(b=>b.onclick=()=>{const i=SG.inp;i.value=l[+b.dataset.sg];sgHide();i.dispatchEvent(new Event("input",{bubbles:true}));i.dispatchEvent(new Event("change",{bubbles:true}));i.blur()});
+ sgPlace();
+}
+document.addEventListener("focusin",e=>{const t=e.target;if(!(t instanceof HTMLInputElement))return;
+ const id=t.getAttribute("list")||t.dataset.sl;if(!id){if(SG.box)sgHide();return}
+ if(t.getAttribute("list")){t.dataset.sl=id;t.removeAttribute("list");t.setAttribute("autocomplete","off")}
+ SG.inp=t;SG.dl=id;setTimeout(sgShow,250)});
+document.addEventListener("input",e=>{if(SG.inp&&e.target===SG.inp&&e.isTrusted)sgShow()});
+document.addEventListener("focusout",e=>{if(e.target===SG.inp)setTimeout(()=>{if(document.activeElement!==SG.inp)sgHide()},150)});
+if(window.visualViewport)visualViewport.addEventListener("resize",()=>{if(SG.box)sgPlace()});
+
 /* ================= ABA CATÁLOGO ================= */
 let KF={search:"",f:0};
 function vCatalog(){
@@ -2160,7 +2207,7 @@ function vCompany(){
  <div class="card stack"><h3>PDF</h3><label class="chk"><input type="checkbox" id="op_ask" ${o.ask?"checked":""}>Sempre escolher o nome do arquivo salvo</label><label class="chk"><input type="checkbox" id="op_lines" ${o.lines?"checked":""}>Linha entre os itens</label><label class="chk"><input type="checkbox" id="op_noseq" ${o.noseq?"checked":""}>Desabilitar sequência numérica do orçamento</label>
   <div class="grid2"><div><label class="lbl" for="op_cur">Moeda</label><select class="in-f" id="op_cur">${CUR_LBL.map((l,i)=>`<option value="${i}" ${o.cur===i?"selected":""}>${l}</option>`).join("")}</select></div><div><label class="lbl" for="op_seq">Último número de orçamento</label><input class="in-f" id="op_seq" inputmode="numeric" value="${DB.qseq}"></div></div></div>
  <div class="card stack"><h3>Backup e relatório ${NEW}</h3><div class="row"><button class="btn" id="e_bk">Exportar backup (.json)</button><button class="btn" id="e_rs">Restaurar backup</button><button class="btn" id="e_csv">Planilha dos orçamentos (.csv)</button></div><input type="file" id="e_rsf" accept=".json,application/json" hidden></div>
- <p class="muted" style="font-size:12.5px;text-align:center">ESM Projeta 2.3 · Orçamentos e projetos de CFTV · <button class="btn sm ghost" id="e_news2">Novidades</button></p>
+ <p class="muted" style="font-size:12.5px;text-align:center">ESM Projeta 2.3.1 · Orçamentos e projetos de CFTV · <button class="btn sm ghost" id="e_news2">Novidades</button></p>
  </div></section>`;
  const map={name:"name",razao:"razao",cnpj:"cnpj",insc:"insc",phone:"phone",email:"email",site:"site",insta:"insta",city:"city",resp:"resp",end:"end",desc:"desc",pix:"pix",pixNome:"pixNome",pixCidade:"pixCidade",cond:"cond",payLink:"payLink",equipe:"equipe",checklist:"checklist",propUrl:"propUrl"};
  for(const k in map)$("#co_"+k).oninput=e=>{co[map[k]]=e.target.value;cfgChanged()};
