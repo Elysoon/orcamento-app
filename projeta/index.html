@@ -589,7 +589,7 @@ const uid=()=>Math.random().toString(36).slice(2,9);
 const today=()=>new Date().toISOString().slice(0,10);
 const fmtDate=d=>{if(!d)return"";const[y,m,dd]=d.split("-");return`${dd}/${m}/${y}`};
 let toastT;function toast(m){let t=$(".toast");if(!t){t=document.createElement("div");t.className="toast";document.body.appendChild(t)}t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2600)}
-const APP_VER="2.4.2";
+const APP_VER="2.4.3";
 /* versão do GitHub: se a publicada for mais nova que a aberta, recarrega uma vez sem cache */
 (()=>{try{if(!(window.ESMAndroid&&location.protocol==="https:"))return;if(sessionStorage.getItem("esmp.vchk"))return;sessionStorage.setItem("esmp.vchk","1");
  fetch(location.origin+location.pathname+"?nc="+Date.now(),{cache:"no-store"}).then(r=>r.ok?r.text():"").then(h=>{const m=h.match(/const APP_VER="([^"]+)"/);if(m&&m[1]!==APP_VER)location.replace(location.origin+location.pathname+"?t="+Date.now())}).catch(()=>{})}catch(_){}})();
@@ -1689,7 +1689,7 @@ function quoteForm(q){
   const t=qTotal(q),en=qEntrada(q),rest=t-en;$("#qf_payt").textContent=q.sinal>0||q.parc>1?`Entrada ${brl(en)} · saldo ${brl(rest)}${q.parc>1?` em ${q.parc}× de ${brl(rest/q.parc)}`:""}`:"";
   const c=qCost(q);$("#qf_mg").innerHTML=c>0?`<b>Só você vê</b> ${NEW} · custo ${brl(c)} · lucro ${brl(t-c)} (${t?Math.round((t-c)/t*100):0}%)`:""};
  const sigUI=()=>{$("#qf_sigt").textContent=q.sig?"Assinatura registrada.":"Sem assinatura. Ela é opcional e aparece no PDF.";$("#qf_sigi").innerHTML=q.sig?`<img src="data:image/png;base64,${q.sig}" alt="Assinatura" style="max-height:90px;background:#fffff0;border-radius:10px;padding:6px">`:"";$("#qf_sigx").hidden=!q.sig};
- const rebuild=()=>{read();QF.q=q;quoteForm(q)};
+ const rebuild=()=>{QF.q=q;quoteForm(q)}; // quem chama já fez read(); reler aqui desfazia a mudança (ex.: desmarcar pacotes)
  let fotoIdx=-1;const fin=document.createElement("input");fin.type="file";fin.accept="image/*";fin.hidden=true;$("#main").appendChild(fin);
  fin.onchange=async()=>{const f=fin.files[0];fin.value="";if(!f||fotoIdx<0||!items[fotoIdx])return;read();try{items[fotoIdx].img=await shrink(f,900,"image/jpeg",.75);
   const it=DB.col.catalog.find(x=>x.nome===items[fotoIdx].d);if(it){it.img=items[fotoIdx].img;upsert("catalog",it)}}catch(_){toast("Não foi possível usar essa foto")}QF.q=q;quoteForm(q)};
