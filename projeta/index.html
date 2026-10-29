@@ -242,6 +242,9 @@ table.bt{width:100%;border-collapse:collapse;font-size:13.5px;min-width:660px}
 .pg .nl td{border-bottom:0}
 .pg .qtotal{background:#F22B0C;color:#fff;font-size:16px;font-weight:700;padding:9px 12px!important;margin-top:6px;border:0!important}
 .pg .qsig{padding-top:70px}
+.pg .qthumb{float:left;width:40px;height:40px;object-fit:cover;border-radius:4px;margin:0 8px 2px 0;border:1px solid #e6e3dc}
+.pg .qt{table-layout:fixed;width:100%}.pg .qt th:nth-child(2){width:56px}.pg .qt th:nth-child(3),.pg .qt th:nth-child(4){width:112px}
+.pg .blk{display:flex;flex-direction:column;gap:14px}.pg .blk.bot{margin-top:auto}.pg .blk .sig{margin-top:0}
 .pg .qsig img{display:block;max-height:60px;max-width:200px;margin:-66px auto 6px}
 .pg .tg{font-size:9px;color:#888;text-transform:uppercase;letter-spacing:.06em}
 .pg .pkg{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
@@ -1671,10 +1674,15 @@ function quoteForm(q){
   const c=qCost(q);$("#qf_mg").innerHTML=c>0?`<b>Só você vê</b> ${NEW} · custo ${brl(c)} · lucro ${brl(t-c)} (${t?Math.round((t-c)/t*100):0}%)`:""};
  const sigUI=()=>{$("#qf_sigt").textContent=q.sig?"Assinatura registrada.":"Sem assinatura. Ela é opcional e aparece no PDF.";$("#qf_sigi").innerHTML=q.sig?`<img src="data:image/png;base64,${q.sig}" alt="Assinatura" style="max-height:90px;background:#fffff0;border-radius:10px;padding:6px">`:"";$("#qf_sigx").hidden=!q.sig};
  const rebuild=()=>{read();QF.q=q;quoteForm(q)};
+ let fotoIdx=-1;const fin=document.createElement("input");fin.type="file";fin.accept="image/*";fin.hidden=true;$("#main").appendChild(fin);
+ fin.onchange=async()=>{const f=fin.files[0];fin.value="";if(!f||fotoIdx<0||!items[fotoIdx])return;read();try{items[fotoIdx].img=await shrink(f,900,"image/jpeg",.75);
+  const it=DB.col.catalog.find(x=>x.nome===items[fotoIdx].d);if(it){it.img=items[fotoIdx].img;upsert("catalog",it)}}catch(_){toast("Não foi possível usar essa foto")}QF.q=q;quoteForm(q)};
  document.querySelectorAll("[data-ri]").forEach(r=>{const o=items[+r.dataset.ri];
   ["r_q","r_p"].forEach(c=>$("."+c,r).oninput=tot);
-  $(".r_d",r).oninput=e=>{const it=DB.col.catalog.find(x=>x.nome===e.target.value);if(it){if(!num($(".r_p",r).value))$(".r_p",r).value=dec(it.preco);o.c=+it.custo||0}tot()};
+  $(".r_d",r).oninput=e=>{const it=DB.col.catalog.find(x=>x.nome===e.target.value);if(it){if(!num($(".r_p",r).value))$(".r_p",r).value=dec(it.preco);o.c=+it.custo||0;if(it.img&&!o.img){read();o.img=it.img;rebuild();return}}tot()};
   $(".r_x",r).onclick=()=>{read();if(items.length<=1){toast("O orçamento precisa de ao menos um item ou serviço.");return}items.splice(+r.dataset.ri,1);rebuild()};
+  $(".r_f",r).onclick=()=>{fotoIdx=+r.dataset.ri;fin.click()};
+  if($(".r_fx",r))$(".r_fx",r).onclick=()=>{read();delete o.img;rebuild()};
   $(".r_o",r).onclick=e=>{o.o=!o.o;if(!o.o)delete o.o;e.currentTarget.setAttribute("aria-pressed",!!o.o);r.classList.toggle("opt",!!o.o);tot()};
   const ps=$(".r_pk",r);if(ps)ps.onchange=()=>{const v=+ps.value;if(v>=0)o.pk=v;else delete o.pk;tot()}});
  ["qf_cli","qf_tel","qf_end","qf_val","qf_obs","qf_mand"].forEach(id=>$("#"+id).oninput=()=>read());["qf_desc","qf_sinal","qf_parc","qf_man"].forEach(id=>$("#"+id).oninput=tot);$("#qf_pix").onchange=tot;
@@ -1683,7 +1691,7 @@ function quoteForm(q){
  $("#qf_pkon").onchange=e=>{read();if(e.target.checked){q.pacotes=["Essencial","Recomendado","Completo"];q.pkRec=1}else{q.pacotes=[];items.forEach(o=>delete o.pk)}rebuild()};
  document.querySelectorAll("[data-pkn]").forEach(i=>i.oninput=()=>{read();tot()});document.querySelectorAll("[data-pkr]").forEach(i=>i.onchange=()=>{q.pkRec=+i.dataset.pkr;tot()});
  document.querySelectorAll("[data-blank]").forEach(b=>b.onclick=()=>{read();items.push({d:"",t:b.dataset.blank,q:1,p:0});rebuild()});
- document.querySelectorAll("[data-cat]").forEach(b=>b.onclick=()=>{read();catalogPick(b.dataset.cat,it=>{const e=items.findIndex(o=>!o.d&&o.t===b.dataset.cat);const row={d:it.nome,t:b.dataset.cat,q:1,p:+it.preco||0};if(+it.custo)row.c=+it.custo;if(e>=0)items[e]=row;else items.push(row);QF.q=q;quoteForm(q)})});
+ document.querySelectorAll("[data-cat]").forEach(b=>b.onclick=()=>{read();catalogPick(b.dataset.cat,it=>{const e=items.findIndex(o=>!o.d&&o.t===b.dataset.cat);const row={d:it.nome,t:b.dataset.cat,q:1,p:+it.preco||0};if(+it.custo)row.c=+it.custo;if(it.img)row.img=it.img;if(e>=0)items[e]=row;else items.push(row);QF.q=q;quoteForm(q)})});
  $("#qf_pc").onclick=()=>{read();clientPick(c=>{q.cliId=c.id;q.cliente=c.nome;q.tel=c.tel||"";q.end=[c.end,c.cidade&&c.cidade+(c.uf?" - "+c.uf:"")].filter(Boolean).join(", ");QF.q=q;quoteForm(q);toast("Cliente: "+c.nome)})};
  $("#qf_fadd").onclick=()=>$("#qf_ff").click();
  $("#qf_ff").onchange=async e=>{read();for(const f of [...e.target.files].slice(0,8)){try{q.fotos.push({img:await shrink(f,1100,"image/jpeg",.78),cap:""})}catch(_){}}rebuild()};
@@ -1702,7 +1710,7 @@ function quoteForm(q){
  sigUI();tot();
 }
 function qRow(o,i,q){return`<div class="qrowf${o.o?" opt":""}" data-ri="${i}"><input class="in-f r_d" autocomplete="off" data-sl="dl_${o.t}" value="${esc(o.d)}" placeholder="${o.t==="s"?"Descrição do serviço":"Descrição do item"}"><div class="row" style="flex-wrap:nowrap;gap:8px"><input class="in-f r_q num" inputmode="decimal" value="${fx(o.q)}" style="flex:1;min-width:0" aria-label="Quantidade"><input class="in-f r_p num" inputmode="decimal" value="${o.p?dec(o.p):""}" placeholder="Valor unitário" style="flex:2;min-width:0" aria-label="Valor unitário"><span class="num r_t muted" style="min-width:86px;text-align:right;font-size:13px"></span><button class="btn sm ghost r_x" aria-label="Remover">✕</button></div>
- <div class="row" style="gap:6px"><button type="button" class="chip r_o" aria-pressed="${!!o.o}">Opcional</button>${hasPk(q)?`<select class="in-f r_pk" style="width:auto;padding:6px 10px;font-size:13px" aria-label="Pacote"><option value="-1">Todos os pacotes</option>${q.pacotes.map((n,j)=>`<option value="${j}" ${o.pk===j?"selected":""}>Só no ${esc(n)}</option>`).join("")}</select>`:""}</div></div>`}
+ <div class="row" style="gap:6px"><button type="button" class="chip r_o" aria-pressed="${!!o.o}">Opcional</button>${o.img?`<img class="r_im" src="${o.img}" alt="Foto" style="width:44px;height:44px;object-fit:cover;border-radius:8px;border:1px solid var(--line2)"><button type="button" class="chip r_f">Trocar foto</button><button type="button" class="chip r_fx" aria-label="Tirar foto">✕</button>`:`<button type="button" class="chip r_f">+ Foto</button>`}${hasPk(q)?`<select class="in-f r_pk" style="width:auto;padding:6px 10px;font-size:13px" aria-label="Pacote"><option value="-1">Todos os pacotes</option>${q.pacotes.map((n,j)=>`<option value="${j}" ${o.pk===j?"selected":""}>Só no ${esc(n)}</option>`).join("")}</select>`:""}</div></div>`}
 function saveQuote(q){
  if(!String(q.cliente||"").trim()){toast("Informe o nome do cliente.");return false}
  q.itens=(q.itens||[]).filter(o=>String(o.d||"").trim());
@@ -1729,16 +1737,44 @@ function receiptPage(q,r){const co=DB.company,cli=DB.col.clients.find(c=>c.id===
  </div>${foot(1,1)}</div>`}
 
 /* ---------- PDF do orçamento (pacotes, opcionais, Pix, manutenção, fotos) ---------- */
+/* Mede cada bloco numa página escondida e distribui sem sobrar página vazia.
+   O bloco de assinatura nunca fica sozinho: leva junto o bloco anterior. */
+function packPages(blocks,head){
+ const host=document.createElement("div");host.style.cssText="position:fixed;left:-10000px;top:0;visibility:hidden;pointer-events:none";
+ const tb=t=>t.pre+t.head+t.rows.join("")+"</tbody></table>";
+ host.innerHTML=`<div class="pg L-exec">${head}<div class="bd">${blocks.map(b=>`<div class="blk">${b.tbl?tb(b.tbl):b.html}</div>`).join("")}</div>${foot(1,1)}</div>`;
+ document.body.appendChild(host);const bd=host.querySelector(".bd"),MAX=bd.clientHeight-8,GAP=14;
+ const ms=[...bd.children].map((e,i)=>{const h=Math.ceil(e.getBoundingClientRect().height);if(!blocks[i].tbl)return{h};
+  const trs=[...e.querySelectorAll("tbody tr")].map(r=>Math.ceil(r.getBoundingClientRect().height)),th=Math.ceil(e.querySelector("thead").getBoundingClientRect().height);
+  const t=e.querySelector("table"),pre=Math.ceil(t.getBoundingClientRect().top-e.getBoundingClientRect().top);return{h,trs,th,pre}});
+ host.remove();
+ const pages=[[]];let used=0;const room=()=>MAX-used-(pages[pages.length-1].length?GAP:0);
+ const put=(html,h,bot)=>{const pg=pages[pages.length-1];used+=(pg.length?GAP:0)+h;pg.push({html,h,bot})};
+ const newPage=()=>{pages.push([]);used=0};
+ blocks.forEach((b,i)=>{const m=ms[i];
+  if(b.tbl){const t=b.tbl;let k=0,first=true;
+   while(k<t.rows.length){const top=(first?m.pre:0)+m.th;let h=top,j=k;
+    if(top+m.trs[k]>room()&&pages[pages.length-1].length){newPage();continue}
+    while(j<t.rows.length&&h+m.trs[j]<=room()){h+=m.trs[j];j++}
+    if(j===k){h+=m.trs[k];j=k+1}
+    put((first?t.pre:"")+t.head+t.rows.slice(k,j).join("")+"</tbody></table>",h);k=j;first=false;if(k<t.rows.length)newPage()}
+   return}
+  const pg=pages[pages.length-1];
+  if(pg.length&&m.h>room()){
+   if(b.bot&&pg.length>1){const prev=pg.pop();newPage();put(prev.html,prev.h)}else newPage()}
+  put(b.html,m.h,b.bot)});
+ return pages.filter(p=>p.length).map(p=>p.map(x=>`<div class="blk${x.bot?" bot":""}">${x.html}</div>`));
+}
 function quotePages(q){
  const co=DB.company,lines=DB.opt.lines,pk=hasPk(q),its=q.itens||[];
  const blocks=[];const H=(h,html)=>blocks.push({h,html});
  const meta=[q.num?`Nº ${q.num}`:"",`Data: ${new Date(+q.id||Date.now()).toLocaleDateString("pt-BR")}`,`Validade: ${q.val||7} dias`].filter(Boolean).join(" · ");
  H(150,`<div class="qhd"><div><small>Emitente</small><b>${esc(co.name)}</b>${[co.razao&&co.razao.toLowerCase()!==String(co.name).toLowerCase()?co.razao:"",co.cnpj&&"CPF/CNPJ: "+co.cnpj,co.insc&&"Inscrição: "+co.insc,co.end,[co.phone,co.email].filter(Boolean).join(" | ")].filter(Boolean).map(x=>`<span>${esc(x)}</span>`).join("")}</div><div><small>Cliente</small><b>${esc(q.cliente)}</b>${[q.tel&&"Telefone: "+q.tel,q.end].filter(Boolean).map(x=>`<span>${esc(x)}</span>`).join("")}</div></div>`);
- const rowH=o=>22+Math.floor(String(o.d).length/62)*15;
+ const rowH=o=>Math.max(o.img?52:0,22+Math.floor(String(o.d).length/62)*15);
  const table=(arr,title,sub)=>{if(!arr.length)return;let pre=title?`<h5 class="qsec" style="margin-bottom:10px">${title}</h5>`:"";
   const head=`<table class="t qt${lines?"":" nl"}"><thead><tr><th>Descrição</th><th class="r">Qtd</th><th class="r">Unitário</th><th class="r">Total</th></tr></thead><tbody>`;
-  let cur=[],ch=34+(pre?34:0);const flush=()=>{if(cur.length)H(ch,pre+head+cur.join("")+"</tbody></table>");pre="";cur=[];ch=34};
-  arr.forEach(o=>{const h=rowH(o);if(ch+h>520)flush();cur.push(`<tr><td>${esc(o.d)}${o.t==="s"&&pk?` <span class="tg">serviço</span>`:""}</td><td class="r">${fx(o.q)}</td><td class="r">${brl(o.p)}</td><td class="r"><b>${brl(lineV(o))}</b></td></tr>`);ch+=h});flush();
+  const rows=[];
+  arr.forEach(o=>{rows.push(`<tr><td>${o.img?`<img class="qthumb" src="${o.img}" alt="">`:""}${esc(o.d)}${o.t==="s"&&pk?` <span class="tg">serviço</span>`:""}</td><td class="r">${fx(o.q)}</td><td class="r">${brl(o.p)}</td><td class="r"><b>${brl(lineV(o))}</b></td></tr>`)});blocks.push({tbl:{pre,head,rows}});
   if(sub)H(28,`<div class="qsub">${sub}: <b>${brl(arr.reduce((a,o)=>a+lineV(o),0))}</b></div>`)};
  const com=its.filter(o=>!o.o&&!(pk&&o.pk>=0)),itI=com.filter(o=>o.t!=="s"),itS=com.filter(o=>o.t==="s"),both=itI.length&&itS.length;
  if(pk&&com.length)H(26,`<h5 class="qsec" style="color:#262626;margin-bottom:-8px">Incluído em todos os pacotes</h5>`);
@@ -1753,15 +1789,16 @@ function quotePages(q){
   H(qr?190:80,`<h5 class="qsec">Condições de pagamento</h5><div class="paybox"><div>${q.sinal>0?`<p>Entrada de <b>${q.sinal}%</b>: <b>${brl(en)}</b></p><p>Saldo: <b>${brl(rest)}</b>${q.parc>1?` em <b>${q.parc}× de ${brl(rest/q.parc)}</b>`:""}</p>`:q.parc>1?`<p>Em <b>${q.parc}× de ${brl(t/q.parc)}</b></p>`:`<p>À vista: <b>${brl(t)}</b></p>`}${showPix?`<p class="pixk">Chave Pix: <b>${esc(co.pix)}</b>${co.pixNome?` · ${esc(co.pixNome)}`:""}</p>`:""}</div>${qr?`<div class="qrw"><img src="${qr}" alt=""><span>Pix ${en>0?"da entrada":""}<br>${brl(amt)}</span></div>`:""}</div>`)}
  if(q.manut>0)H(70,`<div class="manbox"><b>Plano de manutenção mensal (opcional): ${brl(q.manut)}/mês</b>${q.manutD?`<span>${esc(q.manutD)}</span>`:""}</div>`);
  if(String(q.obs||"").trim())H(46+Math.ceil(String(q.obs).length/95)*17+(String(q.obs).match(/\n/g)||[]).length*17,`<h5 class="qsec">Condições e observações</h5><div class="note">${esc(q.obs)}</div>`);
- H(150,`<div class="sig qsig"><div>${co.assin?`<img src="data:image/png;base64,${co.assin}" alt="">`:""}<b>${esc(co.name)}</b>${co.resp?`<br>${esc(co.resp)}`:""}</div><div>${q.sig?`<img src="data:image/png;base64,${q.sig}" alt="">`:""}<b>Aceite do cliente</b><br>${esc(q.cliente)}</div></div>${co.desc?`<p class="qdesc">${esc(co.desc)}</p>`:""}`);
- const pages=[[]];let used=0;const MAX=900;
- blocks.forEach(b=>{if(used+b.h>MAX&&pages[pages.length-1].length){pages.push([]);used=0}pages[pages.length-1].push(b.html);used+=b.h+14});
+ blocks.push({bot:1,html:`<div class="sig qsig"><div>${co.assin?`<img src="data:image/png;base64,${co.assin}" alt="">`:""}<b>${esc(co.name)}</b>${co.resp?`<br>${esc(co.resp)}`:""}</div><div>${q.sig?`<img src="data:image/png;base64,${q.sig}" alt="">`:""}<b>Aceite do cliente</b><br>${esc(q.cliente)}</div></div>${co.desc?`<p class="qdesc">${esc(co.desc)}</p>`:""}`});
+ const pages=packPages(blocks,head2("Orçamento",meta));
  const fot=q.fotos||[];for(let i=0;i<fot.length;i+=4)pages.push([`<h5 class="qsec">Registro do local${i?" (continuação)":""}</h5><div class="photos">${fot.slice(i,i+4).map(f=>`<div class="photo"><div class="im"><img src="${f.img}" alt=""></div><div class="cap">${esc(f.cap||"")}</div></div>`).join("")}</div>`]);
+ const fi=its.filter(o=>o.img&&String(o.d||"").trim());for(let i=0;i<fi.length;i+=4)pages.push([`<h5 class="qsec">Fotos dos itens e serviços${i?" (continuação)":""}</h5><div class="photos">${fi.slice(i,i+4).map(o=>`<div class="photo"><div class="im"><img src="${o.img}" alt=""></div><div class="cap">${o.t==="s"?"<b>Serviço:</b> ":""}${esc(o.d)}</div></div>`).join("")}</div>`]);
  return pages.map((p,i)=>`<div class="pg L-exec">${head2("Orçamento",meta)}<div class="bd">${p.join("")}</div>${foot(i+1,pages.length)}</div>`);
 }
 
 /* ---------- novidades ---------- */
 const NEWS={feitos:[
+ ["Foto no item e no serviço","Anexe foto do equipamento ou de como o serviço é feito; sai miniatura na tabela e uma página de fotos no PDF.","Pedido seu"],
  ["Equipamentos de cada cliente","DVR, NVR, câmeras, roteador e alarme com IP, DDNS, usuário, senha, e-mail e série, com copiar e ocultar senha.","Pedido seu"],
  ["Atualiza sozinho pelo GitHub","O app abre a versão mais nova publicada; sem internet, usa a última que já baixou.","Pedido seu"],
  ["Painel de orçamentos","Valor em aberto, aprovados no mês, taxa de aprovação e retornos do dia.","D-Tools Cloud, Jobber"],
@@ -2207,7 +2244,7 @@ function vCompany(){
  <div class="card stack"><h3>PDF</h3><label class="chk"><input type="checkbox" id="op_ask" ${o.ask?"checked":""}>Sempre escolher o nome do arquivo salvo</label><label class="chk"><input type="checkbox" id="op_lines" ${o.lines?"checked":""}>Linha entre os itens</label><label class="chk"><input type="checkbox" id="op_noseq" ${o.noseq?"checked":""}>Desabilitar sequência numérica do orçamento</label>
   <div class="grid2"><div><label class="lbl" for="op_cur">Moeda</label><select class="in-f" id="op_cur">${CUR_LBL.map((l,i)=>`<option value="${i}" ${o.cur===i?"selected":""}>${l}</option>`).join("")}</select></div><div><label class="lbl" for="op_seq">Último número de orçamento</label><input class="in-f" id="op_seq" inputmode="numeric" value="${DB.qseq}"></div></div></div>
  <div class="card stack"><h3>Backup e relatório ${NEW}</h3><div class="row"><button class="btn" id="e_bk">Exportar backup (.json)</button><button class="btn" id="e_rs">Restaurar backup</button><button class="btn" id="e_csv">Planilha dos orçamentos (.csv)</button></div><input type="file" id="e_rsf" accept=".json,application/json" hidden></div>
- <p class="muted" style="font-size:12.5px;text-align:center">ESM Projeta 2.3.2 · Orçamentos e projetos de CFTV · <button class="btn sm ghost" id="e_news2">Novidades</button>${window.ESMAndroid&&/^https:/.test(location.protocol)?` <button class="btn sm ghost" id="e_upd">Buscar atualização</button>`:window.ESMAndroid?` <span class="muted">(cópia do aparelho, sem internet)</span>`:""}</p>
+ <p class="muted" style="font-size:12.5px;text-align:center">ESM Projeta 2.3.3 · Orçamentos e projetos de CFTV · <button class="btn sm ghost" id="e_news2">Novidades</button>${window.ESMAndroid&&/^https:/.test(location.protocol)?` <button class="btn sm ghost" id="e_upd">Buscar atualização</button>`:window.ESMAndroid?` <span class="muted">(cópia do aparelho, sem internet)</span>`:""}</p>
  </div></section>`;
  const map={name:"name",razao:"razao",cnpj:"cnpj",insc:"insc",phone:"phone",email:"email",site:"site",insta:"insta",city:"city",resp:"resp",end:"end",desc:"desc",pix:"pix",pixNome:"pixNome",pixCidade:"pixCidade",cond:"cond",payLink:"payLink",equipe:"equipe",checklist:"checklist",propUrl:"propUrl"};
  if($("#e_upd"))$("#e_upd").onclick=()=>location.replace(location.origin+location.pathname+"?t="+Date.now());
