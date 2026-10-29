@@ -244,7 +244,11 @@ table.bt{width:100%;border-collapse:collapse;font-size:13.5px;min-width:660px}
 .pg .qsig{padding-top:70px}
 .pg .qthumb{float:left;width:40px;height:40px;object-fit:cover;border-radius:4px;margin:0 8px 2px 0;border:1px solid #e6e3dc}
 .pg .qt{table-layout:fixed;width:100%}.pg .qt th:nth-child(2){width:56px}.pg .qt th:nth-child(3),.pg .qt th:nth-child(4){width:112px}
-.pg .blk{display:flex;flex-direction:column;gap:14px}.pg .blk.bot{margin-top:auto}.pg .blk .sig{margin-top:0}
+.pg .blk{display:flex;flex-direction:column;gap:14px}.pg .blk .sig{margin-top:0}.pg .blk .qsig{padding-top:44px}
+.pg .pgrid{display:grid;gap:12px}.pg .pgrid.c3{grid-template-columns:repeat(3,1fr)}.pg .pgrid.c2{grid-template-columns:repeat(2,1fr)}
+.pg .pgi{border:1px solid #e3e0d8;border-radius:6px;overflow:hidden;background:#fff;display:flex;flex-direction:column}
+.pg .pgi .im{background:#f5f4f0;display:flex;align-items:center;justify-content:center}.pg .pgrid.c3 .im{height:190px}.pg .pgrid.c2 .im{height:250px}
+.pg .pgi img{max-width:100%;max-height:100%;object-fit:contain;display:block}.pg .pgi .cap{padding:6px 8px;font-size:10.5px;line-height:1.35;border-top:1px solid #e3e0d8;color:#333}
 .pg .qsig img{display:block;max-height:60px;max-width:200px;margin:-66px auto 6px}
 .pg .tg{font-size:9px;color:#888;text-transform:uppercase;letter-spacing:.06em}
 .pg .pkg{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
@@ -1760,8 +1764,7 @@ function packPages(blocks,head){
     put((first?t.pre:"")+t.head+t.rows.slice(k,j).join("")+"</tbody></table>",h);k=j;first=false;if(k<t.rows.length)newPage()}
    return}
   const pg=pages[pages.length-1];
-  if(pg.length&&m.h>room()){
-   if(b.bot&&pg.length>1){const prev=pg.pop();newPage();put(prev.html,prev.h)}else newPage()}
+  if(pg.length&&m.h>room()){const r=room(),fh=b.fit&&b.fit(r,m.h,b.html);if(fh){put(fh,r);return}newPage()}
   put(b.html,m.h,b.bot)});
  return pages.filter(p=>p.length).map(p=>p.map(x=>`<div class="blk${x.bot?" bot":""}">${x.html}</div>`));
 }
@@ -1774,7 +1777,7 @@ function quotePages(q){
  const table=(arr,title,sub)=>{if(!arr.length)return;let pre=title?`<h5 class="qsec" style="margin-bottom:10px">${title}</h5>`:"";
   const head=`<table class="t qt${lines?"":" nl"}"><thead><tr><th>Descrição</th><th class="r">Qtd</th><th class="r">Unitário</th><th class="r">Total</th></tr></thead><tbody>`;
   const rows=[];
-  arr.forEach(o=>{rows.push(`<tr><td>${o.img?`<img class="qthumb" src="${o.img}" alt="">`:""}${esc(o.d)}${o.t==="s"&&pk?` <span class="tg">serviço</span>`:""}</td><td class="r">${fx(o.q)}</td><td class="r">${brl(o.p)}</td><td class="r"><b>${brl(lineV(o))}</b></td></tr>`)});blocks.push({tbl:{pre,head,rows}});
+  arr.forEach(o=>{rows.push(`<tr><td>${esc(o.d)}${o.t==="s"&&pk?` <span class="tg">serviço</span>`:""}</td><td class="r">${fx(o.q)}</td><td class="r">${brl(o.p)}</td><td class="r"><b>${brl(lineV(o))}</b></td></tr>`)});blocks.push({tbl:{pre,head,rows}});
   if(sub)H(28,`<div class="qsub">${sub}: <b>${brl(arr.reduce((a,o)=>a+lineV(o),0))}</b></div>`)};
  const com=its.filter(o=>!o.o&&!(pk&&o.pk>=0)),itI=com.filter(o=>o.t!=="s"),itS=com.filter(o=>o.t==="s"),both=itI.length&&itS.length;
  if(pk&&com.length)H(26,`<h5 class="qsec" style="color:#262626;margin-bottom:-8px">Incluído em todos os pacotes</h5>`);
@@ -1789,16 +1792,18 @@ function quotePages(q){
   H(qr?190:80,`<h5 class="qsec">Condições de pagamento</h5><div class="paybox"><div>${q.sinal>0?`<p>Entrada de <b>${q.sinal}%</b>: <b>${brl(en)}</b></p><p>Saldo: <b>${brl(rest)}</b>${q.parc>1?` em <b>${q.parc}× de ${brl(rest/q.parc)}</b>`:""}</p>`:q.parc>1?`<p>Em <b>${q.parc}× de ${brl(t/q.parc)}</b></p>`:`<p>À vista: <b>${brl(t)}</b></p>`}${showPix?`<p class="pixk">Chave Pix: <b>${esc(co.pix)}</b>${co.pixNome?` · ${esc(co.pixNome)}`:""}</p>`:""}</div>${qr?`<div class="qrw"><img src="${qr}" alt=""><span>Pix ${en>0?"da entrada":""}<br>${brl(amt)}</span></div>`:""}</div>`)}
  if(q.manut>0)H(70,`<div class="manbox"><b>Plano de manutenção mensal (opcional): ${brl(q.manut)}/mês</b>${q.manutD?`<span>${esc(q.manutD)}</span>`:""}</div>`);
  if(String(q.obs||"").trim())H(46+Math.ceil(String(q.obs).length/95)*17+(String(q.obs).match(/\n/g)||[]).length*17,`<h5 class="qsec">Condições e observações</h5><div class="note">${esc(q.obs)}</div>`);
- blocks.push({bot:1,html:`<div class="sig qsig"><div>${co.assin?`<img src="data:image/png;base64,${co.assin}" alt="">`:""}<b>${esc(co.name)}</b>${co.resp?`<br>${esc(co.resp)}`:""}</div><div>${q.sig?`<img src="data:image/png;base64,${q.sig}" alt="">`:""}<b>Aceite do cliente</b><br>${esc(q.cliente)}</div></div>${co.desc?`<p class="qdesc">${esc(co.desc)}</p>`:""}`});
+ blocks.push({fit:(r,h,x)=>{const pt=44-(h-r)-2;return pt>=8?x.replace('class="sig qsig"',`class="sig qsig" style="padding-top:${pt}px"`):null},html:`<div class="sig qsig"><div>${co.assin?`<img src="data:image/png;base64,${co.assin}" alt="">`:""}<b>${esc(co.name)}</b>${co.resp?`<br>${esc(co.resp)}`:""}</div><div>${q.sig?`<img src="data:image/png;base64,${q.sig}" alt="">`:""}<b>Aceite do cliente</b><br>${esc(q.cliente)}</div></div>${co.desc?`<p class="qdesc">${esc(co.desc)}</p>`:""}`});
+ const grid=(title,arr,cols,cap)=>{const ih=cols===3?190:250;for(let i=0;i<arr.length;i+=cols){const html=`${i?"":`<h5 class="qsec" style="margin-bottom:10px">${title}</h5>`}<div class="pgrid c${cols}">${arr.slice(i,i+cols).map(x=>`<div class="pgi"><div class="im"><img src="${x.img}" alt=""></div>${cap(x)?`<div class="cap">${cap(x)}</div>`:""}</div>`).join("")}</div>`;
+  blocks.push({html,fit:(r,h)=>{const nh=ih-(h-r)-2;return nh>=110?html.replace(/class="im"/g,`class="im" style="height:${nh}px"`):null}})}};
+ grid("Fotos dos itens e serviços",its.filter(o=>o.img&&String(o.d||"").trim()),3,o=>`${o.t==="s"?"<b>Serviço:</b> ":""}${esc(o.d)}`);
+ grid("Registro do local",q.fotos||[],2,f=>esc(f.cap||""));
  const pages=packPages(blocks,head2("Orçamento",meta));
- const fot=q.fotos||[];for(let i=0;i<fot.length;i+=4)pages.push([`<h5 class="qsec">Registro do local${i?" (continuação)":""}</h5><div class="photos">${fot.slice(i,i+4).map(f=>`<div class="photo"><div class="im"><img src="${f.img}" alt=""></div><div class="cap">${esc(f.cap||"")}</div></div>`).join("")}</div>`]);
- const fi=its.filter(o=>o.img&&String(o.d||"").trim());for(let i=0;i<fi.length;i+=4)pages.push([`<h5 class="qsec">Fotos dos itens e serviços${i?" (continuação)":""}</h5><div class="photos">${fi.slice(i,i+4).map(o=>`<div class="photo"><div class="im"><img src="${o.img}" alt=""></div><div class="cap">${o.t==="s"?"<b>Serviço:</b> ":""}${esc(o.d)}</div></div>`).join("")}</div>`]);
  return pages.map((p,i)=>`<div class="pg L-exec">${head2("Orçamento",meta)}<div class="bd">${p.join("")}</div>${foot(i+1,pages.length)}</div>`);
 }
 
 /* ---------- novidades ---------- */
 const NEWS={feitos:[
- ["Foto no item e no serviço","Anexe foto do equipamento ou de como o serviço é feito; sai miniatura na tabela e uma página de fotos no PDF.","Pedido seu"],
+ ["Foto no item e no serviço","Anexe foto do equipamento ou de como o serviço é feito; no PDF sai uma grade de fotos grandes depois dos itens, sem deixar espaço vazio.","Pedido seu"],
  ["Equipamentos de cada cliente","DVR, NVR, câmeras, roteador e alarme com IP, DDNS, usuário, senha, e-mail e série, com copiar e ocultar senha.","Pedido seu"],
  ["Atualiza sozinho pelo GitHub","O app abre a versão mais nova publicada; sem internet, usa a última que já baixou.","Pedido seu"],
  ["Painel de orçamentos","Valor em aberto, aprovados no mês, taxa de aprovação e retornos do dia.","D-Tools Cloud, Jobber"],
@@ -2244,7 +2249,7 @@ function vCompany(){
  <div class="card stack"><h3>PDF</h3><label class="chk"><input type="checkbox" id="op_ask" ${o.ask?"checked":""}>Sempre escolher o nome do arquivo salvo</label><label class="chk"><input type="checkbox" id="op_lines" ${o.lines?"checked":""}>Linha entre os itens</label><label class="chk"><input type="checkbox" id="op_noseq" ${o.noseq?"checked":""}>Desabilitar sequência numérica do orçamento</label>
   <div class="grid2"><div><label class="lbl" for="op_cur">Moeda</label><select class="in-f" id="op_cur">${CUR_LBL.map((l,i)=>`<option value="${i}" ${o.cur===i?"selected":""}>${l}</option>`).join("")}</select></div><div><label class="lbl" for="op_seq">Último número de orçamento</label><input class="in-f" id="op_seq" inputmode="numeric" value="${DB.qseq}"></div></div></div>
  <div class="card stack"><h3>Backup e relatório ${NEW}</h3><div class="row"><button class="btn" id="e_bk">Exportar backup (.json)</button><button class="btn" id="e_rs">Restaurar backup</button><button class="btn" id="e_csv">Planilha dos orçamentos (.csv)</button></div><input type="file" id="e_rsf" accept=".json,application/json" hidden></div>
- <p class="muted" style="font-size:12.5px;text-align:center">ESM Projeta 2.3.3 · Orçamentos e projetos de CFTV · <button class="btn sm ghost" id="e_news2">Novidades</button>${window.ESMAndroid&&/^https:/.test(location.protocol)?` <button class="btn sm ghost" id="e_upd">Buscar atualização</button>`:window.ESMAndroid?` <span class="muted">(cópia do aparelho, sem internet)</span>`:""}</p>
+ <p class="muted" style="font-size:12.5px;text-align:center">ESM Projeta 2.3.4 · Orçamentos e projetos de CFTV · <button class="btn sm ghost" id="e_news2">Novidades</button>${window.ESMAndroid&&/^https:/.test(location.protocol)?` <button class="btn sm ghost" id="e_upd">Buscar atualização</button>`:window.ESMAndroid?` <span class="muted">(cópia do aparelho, sem internet)</span>`:""}</p>
  </div></section>`;
  const map={name:"name",razao:"razao",cnpj:"cnpj",insc:"insc",phone:"phone",email:"email",site:"site",insta:"insta",city:"city",resp:"resp",end:"end",desc:"desc",pix:"pix",pixNome:"pixNome",pixCidade:"pixCidade",cond:"cond",payLink:"payLink",equipe:"equipe",checklist:"checklist",propUrl:"propUrl"};
  if($("#e_upd"))$("#e_upd").onclick=()=>location.replace(location.origin+location.pathname+"?t="+Date.now());
