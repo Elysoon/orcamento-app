@@ -589,7 +589,7 @@ const uid=()=>Math.random().toString(36).slice(2,9);
 const today=()=>new Date().toISOString().slice(0,10);
 const fmtDate=d=>{if(!d)return"";const[y,m,dd]=d.split("-");return`${dd}/${m}/${y}`};
 let toastT;function toast(m){let t=$(".toast");if(!t){t=document.createElement("div");t.className="toast";document.body.appendChild(t)}t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2600)}
-const APP_VER="2.4.1";
+const APP_VER="2.4.2";
 /* versão do GitHub: se a publicada for mais nova que a aberta, recarrega uma vez sem cache */
 (()=>{try{if(!(window.ESMAndroid&&location.protocol==="https:"))return;if(sessionStorage.getItem("esmp.vchk"))return;sessionStorage.setItem("esmp.vchk","1");
  fetch(location.origin+location.pathname+"?nc="+Date.now(),{cache:"no-store"}).then(r=>r.ok?r.text():"").then(h=>{const m=h.match(/const APP_VER="([^"]+)"/);if(m&&m[1]!==APP_VER)location.replace(location.origin+location.pathname+"?t="+Date.now())}).catch(()=>{})}catch(_){}})();
@@ -1727,13 +1727,15 @@ function quoteForm(q){
 }
 function qRow(o,i,q){return`<div class="qrowf${o.o?" opt":""}" data-ri="${i}"><input class="in-f r_d" autocomplete="off" data-sl="dl_${o.t}" value="${esc(o.d)}" placeholder="${o.t==="s"?"Descrição do serviço":"Descrição do item"}"><div class="row" style="flex-wrap:nowrap;gap:8px"><input class="in-f r_q num" inputmode="decimal" value="${fx(o.q)}" style="flex:1;min-width:0" aria-label="Quantidade"><input class="in-f r_p num" inputmode="decimal" value="${o.p?dec(o.p):""}" placeholder="Valor unitário" style="flex:2;min-width:0" aria-label="Valor unitário"><span class="num r_t muted" style="min-width:86px;text-align:right;font-size:13px"></span><button class="btn sm ghost r_x" aria-label="Remover">✕</button></div>
  <div class="row" style="gap:6px"><button type="button" class="chip r_o" aria-pressed="${!!o.o}">Opcional</button>${o.img?`<img class="r_im" src="${o.img}" alt="Foto" style="width:44px;height:44px;object-fit:cover;border-radius:8px;border:1px solid var(--line2)"><button type="button" class="chip r_f">Trocar foto</button><button type="button" class="chip r_fx" aria-label="Tirar foto">✕</button>`:`<button type="button" class="chip r_f">+ Foto</button>`}${hasPk(q)?`<select class="in-f r_pk" style="width:auto;padding:6px 10px;font-size:13px" aria-label="Pacote"><option value="-1">Todos os pacotes</option>${q.pacotes.map((n,j)=>`<option value="${j}" ${o.pk===j?"selected":""}>Só no ${esc(n)}</option>`).join("")}</select>`:""}</div></div>`}
+/* número de 5 dígitos que sobe com saltos aleatórios, como numeração de um orçamento real */
+function nextQuoteNum(){const r=(a,b)=>a+Math.floor(Math.random()*(b-a+1));let n=+DB.qseq||0;if(n<10000)n=r(10200,13800);n+=r(3,19);if(n>99999)n=10000+(n%90000);DB.qseq=n;return String(n)}
 function saveQuote(q){
  if(!String(q.cliente||"").trim()){toast("Informe o nome do cliente.");return false}
  q.itens=(q.itens||[]).filter(o=>String(o.d||"").trim());
  if(!q.itens.length){q.itens=[{d:"",t:"i",q:1,p:0}];toast("Preencha a descrição de ao menos um item.");return false}
  q.itens.sort((a,b)=>(a.t==="s")-(b.t==="s"));q.status=q.status||"rascunho";
  if(!q.id)q.id=newId("quotes");
- if(DB.opt.noseq)q.num="";else if(!q.num){q.num=pad4(DB.qseq+1);DB.qseq++}
+ if(DB.opt.noseq)q.num="";else if(!q.num||(/^\d{1,4}$/.test(q.num)&&(q.status||"rascunho")==="rascunho"&&!(q.link&&q.link.t)&&!q.renum)){q.num=nextQuoteNum();q.renum=1}
  const ex=DB.col.quotes.find(x=>x.id===q.id)||{};const o=Object.assign({},ex,q);upsert("quotes",o);QF.q=q;return true;
 }
 
