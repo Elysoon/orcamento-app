@@ -600,10 +600,12 @@ const uid=()=>Math.random().toString(36).slice(2,9);
 const today=()=>new Date().toISOString().slice(0,10);
 const fmtDate=d=>{if(!d)return"";const[y,m,dd]=d.split("-");return`${dd}/${m}/${y}`};
 let toastT;function toast(m){let t=$(".toast");if(!t){t=document.createElement("div");t.className="toast";document.body.appendChild(t)}t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2600)}
-const APP_VER="2.6.1";
+const APP_VER="2.6.2";
+function remoteVer(){const base=location.protocol==="https:"?location.origin+location.pathname.replace(/[^/]*$/,""):"https://elysoon.github.io/orcamento-app/projeta/";
+ return fetch(base+"versao.json?nc="+Date.now(),{cache:"no-store"}).then(r=>r.ok?r.json():null).then(j=>j&&j.v||"").catch(()=>"")}
 /* versão do GitHub: se a publicada for mais nova que a aberta, recarrega uma vez sem cache */
 (()=>{try{if(!(window.ESMAndroid&&location.protocol==="https:"))return;if(sessionStorage.getItem("esmp.vchk"))return;sessionStorage.setItem("esmp.vchk","1");
- fetch(location.origin+location.pathname+"?nc="+Date.now(),{cache:"no-store"}).then(r=>r.ok?r.text():"").then(h=>{const m=h.match(/const APP_VER="([^"]+)"/);if(m&&m[1]!==APP_VER)location.replace(location.origin+location.pathname+"?t="+Date.now())}).catch(()=>{})}catch(_){}})();
+ remoteVer().then(v=>{if(v&&v!==APP_VER)location.replace(location.origin+location.pathname+"?t="+Date.now())})}catch(_){}})();
 const KV=(()=>{try{return window.ESMAndroid&&ESMAndroid.kvGet?ESMAndroid:null}catch(_){return null}})();
 function ls(k,v){try{
  if(v===undefined){if(KV){let t=KV.kvGet(k);if(!t){t=localStorage.getItem(k);if(t)KV.kvSet(k,t)}return JSON.parse(t||"null")}return JSON.parse(localStorage.getItem(k))}
@@ -2384,7 +2386,10 @@ function vCompany(){
  {const cc=$("#co_cond");let before=co.cond;cc.addEventListener("focus",()=>{before=co.cond});cc.addEventListener("change",()=>{if(before!==co.cond)rememberCond(before)})}
  $("#co_gsync").onclick=()=>{const n=syncGarantia();if(authCloud())runSync(true);toast(`Garantia sincronizada em ${DB.col.quotes.length} orçamento${DB.col.quotes.length===1?"":"s"}${n?`; ${n} tinham cópia antiga e foram atualizados`:""}`)};
  $("#co_gar").onclick=()=>{const t=GARANTIA_ESM;const go=()=>{rememberCond(co.cond);co.cond=t;$("#co_cond").value=t;cfgChanged();const n=syncGarantia();toast(`Garantia atualizada em todos os orçamentos${n?` (${n} limpos)`:""}`)};if(String(co.cond||"").trim()&&co.cond!==t)confirmSheet("Trocar as condições padrão?","O texto atual será substituído pela garantia padrão da ESM.","Trocar",go);else go()};
- if($("#e_upd"))$("#e_upd").onclick=()=>location.replace(location.origin+location.pathname+"?t="+Date.now());
+ if($("#e_upd"))$("#e_upd").onclick=async()=>{const b=$("#e_upd");b.disabled=true;b.textContent="Verificando…";const v=await remoteVer();
+  if(!v){toast("Não consegui falar com o GitHub agora. Confira a internet e tente de novo.");b.disabled=false;b.textContent="Buscar atualização";return}
+  if(v===APP_VER){toast(`Você já está na versão mais nova (${APP_VER}). Se eu acabei de publicar, o GitHub leva até 2 minutos: tente de novo daqui a pouco.`);b.disabled=false;b.textContent="Buscar atualização";return}
+  toast(`Baixando a versão ${v}…`);if(saveT)saveNow();setTimeout(()=>location.replace(location.origin+location.pathname+"?t="+Date.now()),600)};
  for(const k in map)$("#co_"+k).oninput=e=>{co[map[k]]=e.target.value;cfgChanged()};
  ["ask","lines","noseq"].forEach(k=>$("#op_"+k).onchange=e=>{o[k]=e.target.checked;cfgChanged()});
  $("#op_cur").onchange=e=>{o.cur=+e.target.value;cfgChanged()};$("#op_seq").onchange=e=>{DB.qseq=Math.max(0,parseInt(e.target.value)||0);persist()};
