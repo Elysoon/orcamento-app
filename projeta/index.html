@@ -340,6 +340,7 @@ table.bt{width:100%;border-collapse:collapse;font-size:13.5px;min-width:660px}
   <div class="brand"><img id="brandlogo" alt="">ESM <b>Projeta</b></div>
   <div class="pname" id="pname"></div>
   <div class="saved" id="saved">Salvo</div>
+  <button class="btn sm pri" id="seg_save" hidden style="margin-left:8px;padding:6px 14px">Salvar</button>
 </div><div class="gut wrapc" id="segbar" hidden><div class="segrow"><button class="btn sm ghost" id="seg_back" aria-label="Voltar para projetos" style="font-size:20px;padding:4px 10px;line-height:1">‹</button><div class="seg" id="seg"><button data-pt="dados">Dados</button><button data-pt="planta">Planta</button><button data-pt="orcamento">Orçamento</button><button data-pt="documento">Documento</button></div></div></div></header>
 
 <main id="main"></main>
@@ -599,7 +600,7 @@ const uid=()=>Math.random().toString(36).slice(2,9);
 const today=()=>new Date().toISOString().slice(0,10);
 const fmtDate=d=>{if(!d)return"";const[y,m,dd]=d.split("-");return`${dd}/${m}/${y}`};
 let toastT;function toast(m){let t=$(".toast");if(!t){t=document.createElement("div");t.className="toast";document.body.appendChild(t)}t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2600)}
-const APP_VER="2.6.0";
+const APP_VER="2.6.1";
 /* versão do GitHub: se a publicada for mais nova que a aberta, recarrega uma vez sem cache */
 (()=>{try{if(!(window.ESMAndroid&&location.protocol==="https:"))return;if(sessionStorage.getItem("esmp.vchk"))return;sessionStorage.setItem("esmp.vchk","1");
  fetch(location.origin+location.pathname+"?nc="+Date.now(),{cache:"no-store"}).then(r=>r.ok?r.text():"").then(h=>{const m=h.match(/const APP_VER="([^"]+)"/);if(m&&m[1]!==APP_VER)location.replace(location.origin+location.pathname+"?t="+Date.now())}).catch(()=>{})}catch(_){}})();
@@ -668,15 +669,17 @@ const allCams=()=>S.floors.flatMap(f=>f.cams);
 const floorOf=c=>S.floors.find(f=>f.cams.includes(c))||S.floors[S.fi];
 function migrate(p){floorize(p);pCams(p).forEach(c=>{if(!LIB.find(l=>l.id===c.lib))c.lib=OLDIDS[c.lib]||LIB[0].id});if(!LIB.find(l=>l.id===p.cfg.defLib))p.cfg.defLib=OLDIDS[p.cfg.defLib]||LIB[0].id;p.desc=p.desc||{};p.cfg.layers=p.cfg.layers||{dori:true,cables:true,labels:true,walls:true};p.prices=p.prices||{};p.qty=p.qty||{};p.extra=p.extra||[]}
 let saveT;
-function save(){
- $("#saved").textContent="Salvando…";
- clearTimeout(saveT);saveT=setTimeout(()=>{
-  S.ts=Date.now();DB.projects[S.id]=S;if(!DB.order.includes(S.id))DB.order.unshift(S.id);
-  const ok=ls("esmp.db",DB);syncChanged();
-  $("#saved").textContent=ok?"Salvo":"Sem espaço local — exporte o projeto";
-  $("#pname").textContent=S.name;
- },350);
-}
+const hhmm=t=>new Date(t).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+const docKind=p=>p.type==="relatorio"?"Relatório":p.type==="proposta"?"Proposta":"Projeto";
+function saveNow(){clearTimeout(saveT);saveT=null;if(!S||!S.id)return false;
+ S.ts=Date.now();DB.projects[S.id]=S;if(!DB.order.includes(S.id))DB.order.unshift(S.id);
+ const ok=ls("esmp.db",DB);syncChanged();
+ $("#saved").textContent=ok?"Salvo às "+hhmm(S.ts):"Sem espaço no aparelho: exporte o projeto";
+ $("#pname").textContent=S.name;return ok}
+function save(){$("#saved").textContent="Salvando…";clearTimeout(saveT);saveT=setTimeout(saveNow,350)}
+/* nunca perder o que foi digitado: grava na hora ao sair da tela, minimizar ou fechar o app */
+document.addEventListener("visibilitychange",()=>{if(document.hidden&&saveT)saveNow()});
+window.addEventListener("pagehide",()=>{if(saveT)saveNow()});
 function ensureProject(){if(!DB.order.filter(id=>DB.projects[id]).length){const p=sampleProject();DB.projects[p.id]=p;DB.order=[p.id];DB.cur=p.id}if(!DB.cur||!DB.projects[DB.cur])DB.cur=DB.order.find(id=>DB.projects[id]);S=DB.projects[DB.cur];migrate(S);ls("esmp.db",DB)}
 ensureProject();
 
@@ -731,28 +734,37 @@ function bom(){
 }
 
 /* ================= navegação ================= */
-function setTab(t){if(t===tab&&t==="projetos"&&inProj){inProj=false}else if(t===tab&&t==="orcamentos"&&QF.open){QF.open=false}else if(t===tab&&t==="servicos"&&SF.open){SF.open=null}tab=t;render();window.scrollTo(0,0)}
+function setTab(t){if(saveT)saveNow();if(t===tab&&t==="projetos"&&inProj){inProj=false}else if(t===tab&&t==="orcamentos"&&QF.open){QF.open=false}else if(t===tab&&t==="servicos"&&SF.open){SF.open=null}tab=t;render();window.scrollTo(0,0)}
 document.querySelectorAll(".nav button").forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 document.querySelectorAll("#seg [data-pt]").forEach(b=>b.onclick=()=>{ptab=b.dataset.pt;render();window.scrollTo(0,0)});
-$("#seg_back").onclick=()=>{inProj=false;render();window.scrollTo(0,0)};
+$("#seg_back").onclick=()=>{if(saveT)saveNow();inProj=false;render();window.scrollTo(0,0)};
+$("#seg_save").onclick=()=>{if(!saveNow())return;if(authCloud())runSync(false);toast(`${docKind(S)} salvo${authCloud()?" e enviado para a nuvem":" no aparelho"}. Fica em Projetos e na ficha do cliente.`)};
 function openProject(id,sub){load(id);ls("esmp.db",DB);inProj=true;ptab=sub||"planta";if(tab!=="projetos")tab="projetos";render();window.scrollTo(0,0)}
 function render(){
  document.querySelectorAll(".nav button").forEach(b=>b.setAttribute("aria-current",b.dataset.tab===tab?"page":"false"));
- const proj=tab==="projetos"&&inProj;$("#segbar").hidden=!proj;$("#pname").textContent=proj?S.name:"";$("#saved").hidden=!proj;
+ const proj=tab==="projetos"&&inProj;$("#segbar").hidden=!proj;$("#pname").textContent=proj?S.name:"";$("#saved").hidden=!proj;$("#seg_save").hidden=!proj;
  document.querySelectorAll("#seg [data-pt]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.pt===ptab));
  if(tab==="projetos")return proj?({dados:vDados,planta:vPlanta,orcamento:vOrc,documento:vDoc})[ptab]():vHome();
  ({orcamentos:vQuotes,servicos:vServices,clientes:vClients,catalogo:vCatalog,empresa:vCompany})[tab]();
 }
 
 /* ================= HOME ================= */
+let HF={k:"todos",q:""};
 function vHome(){
- const list=DB.order.filter(id=>DB.projects[id]).map(id=>{const p=DB.projects[id];return`<button class="pitem ${id===S.id?"cur":""}" data-open="${id}">
-  <span class="row"><span class="tag ${p.type==="proposta"?"r":""}">${DOCT[p.type].n.split(" ")[0]}</span><span class="tag">${LAYOUTS[p.layout].n}</span></span>
-  <span class="t">${esc(p.name)}</span><span class="m">${esc(p.client?.name||"")}${p.client?.name?" · ":""}${esc(p.number)} · ${pCams(p).length} câmeras${p.floors&&p.floors.length>1?` · ${p.floors.length} andares`:""}</span></button>`}).join("");
+ const all=DB.order.filter(id=>DB.projects[id]).map(id=>DB.projects[id]);
+ const cnt=k=>all.filter(p=>k==="todos"||p.type===k).length;
+ const item=p=>{const t=p.type==="relatorio"?(RTIPO[p.meta&&p.meta.rtipo]||RTIPO.vistoria).t:DOCT[p.type].n;return`<button class="pitem ${p.id===S.id?"cur":""}" data-open="${p.id}">
+  <span class="row"><span class="tag ${p.type==="proposta"?"r":""}">${docKind(p)}</span><span class="tag">${LAYOUTS[p.layout].n}</span>${p.sample?`<span class="tag">Exemplo</span>`:""}</span>
+  <span class="t">${esc(p.client&&p.client.name?p.client.name:p.name)}</span><span class="m">${esc(t)} · ${esc(p.number)}${pCams(p).length?` · ${pCams(p).length} câmeras`:""}${p.ts?` · salvo ${new Date(p.ts).toLocaleDateString("pt-BR")} ${hhmm(p.ts)}`:""}</span></button>`};
+ const draw=()=>{const l=all.filter(p=>(HF.k==="todos"||p.type===HF.k)&&hit(`${p.name} ${p.client&&p.client.name||""} ${p.number} ${p.meta&&p.meta.feito||""}`,HF.q));$("#plist").innerHTML=l.map(item).join("")||`<div class="card"><p class="muted" style="margin:0">Nada encontrado.</p></div>`;
+  document.querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>{const p=DB.projects[b.dataset.open];openProject(b.dataset.open,p.type==="relatorio"&&!(p.cfg&&p.cfg.rPlan)?"dados":"planta")})};
+ const list="";
  $("#main").innerHTML=`<section class="view gut"><div class="wrapc">
- <div class="hero"><div><h2>Projetos de CFTV</h2><p>Desenhe a cobertura na planta, gere o orçamento automático e exporte proposta, relatório ou projeto técnico em PDF com a identidade da ESM.</p></div>
+ <div class="hero"><div><h2>Propostas e relatórios</h2><p>Tudo o que você cria fica salvo aqui e na ficha do cliente, no aparelho e na nuvem. Proposta e projeto de CFTV com planta, ou relatório de vistoria, visita e serviço.</p></div>
  <div class="row"><button class="btn" id="imp">Importar projeto</button><button class="btn pri" id="nw">+ Novo documento</button></div></div>
- <div class="plist">${list}</div>
+ <div class="chips" style="margin-bottom:10px">${[["todos","Todos"],["proposta","Propostas"],["relatorio","Relatórios"],["projeto","Projetos técnicos"]].map(([k,n])=>`<button class="chip" data-hf="${k}" aria-pressed="${HF.k===k}">${n} <span class="muted num">${cnt(k)}</span></button>`).join("")}</div>
+ <input class="in-f" id="h_q" placeholder="Pesquisar cliente, número ou texto do relatório" value="${esc(HF.q)}" style="margin-bottom:12px">
+ <div class="plist" id="plist"></div>
  <div class="card row" style="margin-top:14px;justify-content:space-between"><div><b>Banco de câmeras e catálogo</b><br><span class="muted" style="font-size:12.5px">${LIB.length} câmeras · ${DB.col.catalog.length} itens e serviços no catálogo</span></div><div class="row"><button class="btn" id="bk_c">Câmeras</button><button class="btn" id="bk_i">Catálogo</button></div></div>
  <div class="feat">
   <div><b>Vira orçamento</b>Um toque transforma o projeto em orçamento, com cliente e assinatura.</div>
@@ -764,7 +776,8 @@ function vHome(){
  </div>
  <input type="file" id="impf" accept=".json,application/json" hidden>
  </div></section>`;
- document.querySelectorAll("[data-open]").forEach(b=>b.onclick=()=>openProject(b.dataset.open,"planta"));
+ draw();$("#h_q").oninput=e=>{HF.q=e.target.value;draw()};
+ document.querySelectorAll("[data-hf]").forEach(b=>b.onclick=()=>{HF.k=b.dataset.hf;vHome()});
  $("#nw").onclick=()=>wizard();
  $("#bk_c").onclick=()=>pickModel(null,null,true);$("#bk_i").onclick=()=>setTab("catalogo");
  $("#imp").onclick=()=>$("#impf").click();
@@ -1317,7 +1330,7 @@ async function vDoc(){
 }
 async function exportPDF(){
  await document.fonts.ready;planDatas=await planImagesAll(1800);
- await renderPDF(buildDocHTML(),`${S.number} ${docTitle()} ${S.client.name||""}`+".pdf",$("#dc_pdf"));
+ saveNow();await renderPDF(buildDocHTML(),`${S.number} ${docTitle()} ${S.client.name||""}`+".pdf",$("#dc_pdf"));
 }
 function toB64(data){return new Promise(res=>{const b=data instanceof Blob?data:new Blob([data]);const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]);r.readAsDataURL(b)})}
 let dl;async function saveFile(name,data){
@@ -2180,7 +2193,7 @@ function clientSheet(c){
  ${posvCard(c)}
  <div class="row" style="justify-content:space-between;margin-top:18px"><h3>Equipamentos (${eqs.length}) ${NEW}</h3><button class="btn sm" id="cs_eq">+ Equipamento</button></div><div class="camlist" style="margin-top:8px">${eqs.map(e=>`<button class="camrow" data-oe="${e.id}"><span class="n" style="background:var(--red)">${esc(eqTipo(e.tipo).slice(0,1))}</span><span class="d"><b>${esc(e.nome)}</b><br><span class="muted">${esc([eqTipo(e.tipo),[e.marca,e.modelo].filter(Boolean).join(" "),e.ip||e.ddns].filter(Boolean).join(" · "))}</span></span></button>`).join("")||`<p class="muted">Nenhum. Cadastre DVR, NVR, câmeras, roteador e alarme com usuário, senha e e-mail.</p>`}</div>
  <h3 style="margin-top:14px">Orçamentos (${qs.length})</h3><div class="camlist" style="margin-top:8px">${qs.map(q=>`<button class="camrow" data-oq="${q.id}"><span class="d"><b>${q.num?"Nº "+esc(q.num):"Orçamento"}</b><br><span class="muted">${stamp(q.id)}</span></span><span class="num">${brl(qTotal(q))}</span></button>`).join("")||`<p class="muted">Nenhum.</p>`}</div>
- <h3 style="margin-top:14px">Projetos de CFTV (${ps.length})</h3><div class="camlist" style="margin-top:8px">${ps.map(p=>`<button class="camrow" data-op="${p.id}"><span class="d"><b>${esc(p.name)}</b><br><span class="muted">${pCams(p).length} câmeras</span></span></button>`).join("")||`<p class="muted">Nenhum.</p>`}</div>
+ <h3 style="margin-top:14px">Propostas e relatórios (${ps.length})</h3><div class="camlist" style="margin-top:8px">${ps.map(p=>`<button class="camrow" data-op="${p.id}"><span class="d"><b>${docKind(p)} · ${esc(p.type==="relatorio"?(RTIPO[p.meta&&p.meta.rtipo]||RTIPO.vistoria).n:p.number)}</b><br><span class="muted">${p.ts?"salvo "+new Date(p.ts).toLocaleDateString("pt-BR"):esc(p.number)}${pCams(p).length?` · ${pCams(p).length} câmeras`:""}</span></span></button>`).join("")||`<p class="muted">Nenhum.</p>`}</div>
  <button class="btn ghost" id="cs_x" style="margin-top:16px">Excluir cliente</button>`);wireClose(m);
  $("#cs_e",m).onclick=()=>{m.remove();clientForm(c)};
  $("#cs_q",m).onclick=()=>{m.remove();openQuote(null,{cliId:c.id,cliente:c.nome,tel:c.tel||"",end:[c.end,c.cidade&&c.cidade+(c.uf?" - "+c.uf:"")].filter(Boolean).join(", ")})};
@@ -2397,6 +2410,6 @@ if(authAllowed()){enterApp()}else{render();showLogin()}
 window.addEventListener("online",()=>{if(authCloud()&&DB.dirty)runSync(false)});
 // botão Voltar do Android: fecha janela aberta, sai do formulário/projeto e volta para Projetos
 window.__back=()=>{const m=[...document.querySelectorAll(".modal")].pop();if(m){m.remove();return true}if($("#login"))return false;
- if(tab==="orcamentos"&&QF.open){QF.open=false;render();return true}if(tab==="servicos"&&SF.open){SF.open=null;render();return true}if(tab==="projetos"&&inProj){inProj=false;render();return true}if(tab!=="projetos"){setTab("projetos");return true}return false};
+ if(tab==="orcamentos"&&QF.open){QF.open=false;render();return true}if(tab==="servicos"&&SF.open){SF.open=null;render();return true}if(tab==="projetos"&&inProj){if(saveT)saveNow();inProj=false;render();return true}if(tab!=="projetos"){setTab("projetos");return true}return false};
 </script>
 </body></html>
