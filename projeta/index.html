@@ -247,6 +247,7 @@ table.bt{width:100%;border-collapse:collapse;font-size:13.5px;min-width:660px}
 .pg .blk{display:flex;flex-direction:column;gap:14px}.pg .blk .sig{margin-top:0}.pg .blk .qsig{padding-top:40px}.pg .blk .qsig + .qdesc{margin-top:10px}
 .pg .sqrow{display:flex;flex-wrap:wrap;justify-content:center;gap:14px}.pg .sq{width:196px;border:1px solid #e3e0d8;border-radius:6px;overflow:hidden;background:#fff}
 .pg .sq .im{height:196px;background:#f5f4f0;display:flex;align-items:center;justify-content:center}.pg .sq img{max-width:100%;max-height:100%;object-fit:contain;display:block}.pg .sq .cap{padding:6px 8px;font-size:10px;line-height:1.35;border-top:1px solid #e3e0d8;color:#333;text-align:center}
+.pg .sq.sq2{width:300px}.pg .sq.sq2 .im{height:290px}
 .pg .pgrid{display:grid;gap:12px}.pg .pgrid.c3{grid-template-columns:repeat(3,1fr)}.pg .pgrid.c2{grid-template-columns:repeat(2,1fr)}
 .pg .pgi{border:1px solid #e3e0d8;border-radius:6px;overflow:hidden;background:#fff;display:flex;flex-direction:column}
 .pg .pgi .im{background:#f5f4f0;display:flex;align-items:center;justify-content:center}.pg .pgrid.c3 .im{height:190px}.pg .pgrid.c2 .im{height:250px}
@@ -565,6 +566,12 @@ const DOCT={
  relatorio:{n:"Relatório Técnico de Vistoria",d:"Situação de cada câmera, planta, registro fotográfico e recomendações. Sem valores por padrão."},
  projeto:{n:"Projeto Técnico CFTV",d:"Memorial descritivo, tabela DORI, armazenamento, rede e lista de materiais."}
 };
+const RTIPO={vistoria:{n:"Vistoria técnica",t:"Relatório de Vistoria Técnica",h:"Constatações da vistoria",i:"Apresentamos o resultado da vistoria técnica realizada no local, com o que foi constatado, o registro fotográfico e as recomendações."},
+ visita:{n:"Visita técnica",t:"Relatório de Visita Técnica",h:"Relato da visita",i:"Registramos a seguir o que foi verificado e tratado durante a visita técnica ao local."},
+ andamento:{n:"Durante o serviço",t:"Relatório de Acompanhamento de Serviço",h:"Serviços em execução",i:"Apresentamos o andamento dos serviços no local, com o que já foi executado, os materiais utilizados e o registro fotográfico."},
+ conclusao:{n:"Pós-serviço",t:"Relatório de Conclusão de Serviço",h:"Serviços executados",i:"Apresentamos o relatório de conclusão dos serviços executados no local, com a descrição do que foi feito, os materiais utilizados e o registro fotográfico."}};
+const rTipo=()=>RTIPO[S.meta&&S.meta.rtipo]||RTIPO.vistoria;
+const docTitle=()=>S.type==="relatorio"?rTipo().t:DOCT[S.type].n;
 const LAYOUTS={
  exec:{n:"Executivo",d:"Capa escura da marca, cabeçalho grafite com faixa vermelha."},
  classic:{n:"Clássico",d:"Capa clara com faixa lateral vermelha. Visual de relatório formal."},
@@ -592,7 +599,7 @@ const uid=()=>Math.random().toString(36).slice(2,9);
 const today=()=>new Date().toISOString().slice(0,10);
 const fmtDate=d=>{if(!d)return"";const[y,m,dd]=d.split("-");return`${dd}/${m}/${y}`};
 let toastT;function toast(m){let t=$(".toast");if(!t){t=document.createElement("div");t.className="toast";document.body.appendChild(t)}t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2600)}
-const APP_VER="2.5.0";
+const APP_VER="2.6.0";
 /* versão do GitHub: se a publicada for mais nova que a aberta, recarrega uma vez sem cache */
 (()=>{try{if(!(window.ESMAndroid&&location.protocol==="https:"))return;if(sessionStorage.getItem("esmp.vchk"))return;sessionStorage.setItem("esmp.vchk","1");
  fetch(location.origin+location.pathname+"?nc="+Date.now(),{cache:"no-store"}).then(r=>r.ok?r.text():"").then(h=>{const m=h.match(/const APP_VER="([^"]+)"/);if(m&&m[1]!==APP_VER)location.replace(location.origin+location.pathname+"?t="+Date.now())}).catch(()=>{})}catch(_){}})();
@@ -780,12 +787,13 @@ function wizard(cli){
   if(w.step===0)body=`<h2>Que documento você vai gerar?</h2><p class="muted">O tipo define as seções do PDF. Dá para mudar depois.</p><div class="opts">${Object.entries(DOCT).map(([k,v])=>`<button class="opt" data-t="${k}" aria-pressed="${w.type===k}"><b>${v.n}</b><span>${v.d}</span></button>`).join("")}</div>`;
   if(w.step===1)body=`<h2>Escolha o layout</h2><p class="muted">Visual aplicado a todas as páginas, com logo e dados da ESM.</p><div class="opts">${Object.entries(LAYOUTS).map(([k,v])=>`<button class="opt" data-l="${k}" aria-pressed="${w.layout===k}">${thumb(k)}<b>${v.n}</b><span>${v.d}</span></button>`).join("")}</div>`;
   if(w.step===2)body=`<h2>Cliente e ponto de partida</h2><div class="stack" style="margin-top:12px"><div><label class="lbl" for="wcl">Nome do cliente</label><div class="row" style="flex-wrap:nowrap"><input class="in-f" id="wcl" value="${esc(w.client)}" placeholder="Ex.: Condomínio Jardim Belém" style="flex:1"><button class="btn sm" id="wpc">Cadastrados</button></div>${w.cli?`<span class="muted" style="font-size:12.5px">Vinculado ao cliente cadastrado.</span>`:""}</div>
-   <div class="opts"><button class="opt" data-s="0" aria-pressed="${!w.fromSample}"><b>Planta em branco</b><span>Envie a foto ou PDF convertido da planta, ou desenhe as paredes.</span></button><button class="opt" data-s="1" aria-pressed="${w.fromSample}"><b>Partir do exemplo</b><span>Galpão de 32 × 20 m com 7 câmeras já posicionadas.</span></button></div></div>`;
+   <div class="opts">${w.type==="relatorio"?`<button class="opt" data-s="2" aria-pressed="${!!w.noPlan}"><b>Sem planta</b><span>Só texto, materiais e fotos. Ideal para vistoria, visita ou relatório de serviço.</span></button>`:""}<button class="opt" data-s="0" aria-pressed="${!w.fromSample&&!(w.type==="relatorio"&&w.noPlan)}"><b>Planta em branco</b><span>Envie a foto ou PDF convertido da planta, ou desenhe as paredes.</span></button><button class="opt" data-s="1" aria-pressed="${w.fromSample}"><b>Partir do exemplo</b><span>Galpão de 32 × 20 m com 7 câmeras já posicionadas.</span></button></div></div>`;
   m.innerHTML=`<div class="sheet" role="dialog" aria-label="Novo documento"><div class="row" style="justify-content:space-between"><h3>Novo documento · ${w.step+1}/3</h3><button class="btn sm ghost" id="wx">Fechar</button></div>${st}${body}
   <div class="row" style="justify-content:flex-end;margin-top:18px">${w.step?`<button class="btn" id="wb">Voltar</button>`:""}<button class="btn pri" id="wn">${w.step===2?"Começar projeto":"Continuar"}</button></div></div>`;
   m.querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>{w.type=b.dataset.t;draw()});
   m.querySelectorAll("[data-l]").forEach(b=>b.onclick=()=>{w.layout=b.dataset.l;draw()});
-  m.querySelectorAll("[data-s]").forEach(b=>b.onclick=()=>{w.client=$("#wcl").value;w.fromSample=b.dataset.s==="1";draw()});
+  m.querySelectorAll("[data-s]").forEach(b=>b.onclick=()=>{w.client=$("#wcl").value;w.fromSample=b.dataset.s==="1";w.noPlan=b.dataset.s==="2";draw()});
+  m.querySelectorAll("[data-t]").forEach(b=>b.addEventListener("click",()=>{if(w.type==="relatorio"&&w.noPlan===undefined){w.noPlan=true;draw()}}));
   const cl=$("#wcl");if(cl)cl.oninput=()=>{w.client=cl.value;if(w.cli&&cl.value!==w.cli.nome)w.cli=null};
   if($("#wpc"))$("#wpc").onclick=()=>clientPick(c=>{w.cli=c;w.client=c.nome;draw()});
   $("#wx").onclick=()=>m.remove();
@@ -793,9 +801,10 @@ function wizard(cli){
   $("#wn").onclick=()=>{if(w.step<2){w.step++;draw();return}
    let p;if(w.fromSample){p=sampleProject();const t=defaultTexts(w.type);p.type=w.type;p.meta={...p.meta,...t};p.cfg.showValues=w.type!=="relatorio";if(w.type==="relatorio")p.cams.forEach((c,i)=>c.status=["ok","defeito","substituir","ok","realocar","novo","ok"][i%7])}
    else p=blankProject(w.type,w.layout,w.client.trim());
+   if(w.type==="relatorio"){p.cfg.rPlan=!w.noPlan;if(w.noPlan)p.cfg.rCams=false;p.meta.rtipo=p.meta.rtipo||"vistoria";p.meta.intro=RTIPO[p.meta.rtipo].i}
    p.layout=w.layout;delete p.sample;if(w.client.trim()){p.client.name=w.client.trim();p.name=`${DOCT[w.type].n} — ${w.client.trim()}`}
    if(w.cli)Object.assign(p.client,{cliId:w.cli.id,name:w.cli.nome,doc:w.cli.doc||"",phone:w.cli.tel||"",address:[w.cli.end,w.cli.cidade&&w.cli.cidade+(w.cli.uf?" - "+w.cli.uf:"")].filter(Boolean).join(", ")});
-   DB.projects[p.id]=p;DB.order.unshift(p.id);m.remove();openProject(p.id,w.fromSample?"planta":"dados");save();toast("Projeto criado");
+   DB.projects[p.id]=p;DB.order.unshift(p.id);m.remove();openProject(p.id,w.fromSample&&!(w.type==="relatorio"&&w.noPlan)?"planta":"dados");save();toast("Projeto criado");
   };
  };
  draw();
@@ -814,8 +823,9 @@ function vDados(){
   ${fld("d_num","Número",S.number)}${fld("d_date","Data",S.date,"","date")}${fld("d_val","Validade (dias)",m.validity,"","number")}</div></div>
  <div class="card stack"><div class="row" style="justify-content:space-between"><h3>Cliente</h3><div class="row"><button class="btn sm" id="c_pick">Escolher cliente cadastrado</button>${c.cliId&&DB.col.clients.some(x=>x.id===c.cliId)?`<span class="tag">Vinculado</span>`:`<button class="btn sm ghost" id="c_save">Salvar como cliente</button>`}</div></div><div class="grid2">
   ${fld("c_name","Nome / Razão social",c.name)}${fld("c_doc","CPF / CNPJ",c.doc)}${fld("c_contact","Contato",c.contact)}${fld("c_phone","Telefone",c.phone)}</div>${fld("c_address","Endereço da instalação",c.address)}</div>
+ ${S.type==="relatorio"?relCard():""}
  <div class="card stack"><h3>Textos do documento</h3>
-  ${area("m_intro",S.type==="proposta"?"Carta de apresentação":"Objetivo / introdução",m.intro)}
+  ${area("m_intro",S.type==="proposta"?"Carta de apresentação":"Objetivo / introdução",m.intro,S.type==="relatorio"?3:4)}
   ${S.type!=="proposta"?area("m_recs","Recomendações (uma por linha)",m.recs):""}
   ${area("m_notes","Observações",m.notes,3)}
   ${S.type!=="relatorio"?`<div class="grid2">${fld("m_payment","Pagamento",m.payment)}${fld("m_deadline","Prazo de execução",m.deadline)}${fld("m_warranty","Garantia",m.warranty)}</div>`:""}
@@ -826,6 +836,7 @@ function vDados(){
  bind("d_name",v=>S.name=v);bind("d_num",v=>S.number=v);bind("d_date",v=>S.date=v);bind("d_val",v=>m.validity=+v);
  $("#d_type").onchange=e=>{S.type=e.target.value;S.cfg.showValues=S.type!=="relatorio";save();vDados()};
  $("#d_lay").onchange=e=>{S.layout=e.target.value;save()};
+ if(S.type==="relatorio")relWire();
  ["name","doc","contact","phone","address"].forEach(k=>bind("c_"+k,v=>c[k]=v));
  ["intro","recs","notes","payment","deadline","warranty"].forEach(k=>bind("m_"+k,v=>m[k]=v));
  $("#c_pick").onclick=()=>clientPick(k=>{Object.assign(c,{cliId:k.id,name:k.nome,doc:k.doc||"",phone:k.tel||"",address:[k.end,k.cidade&&k.cidade+(k.uf?" - "+k.uf:"")].filter(Boolean).join(", ")});save();vDados()});
@@ -836,6 +847,26 @@ function vDados(){
 }
 function shrink(file,max,type="image/jpeg",q=.82){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,max/Math.max(im.width,im.height));const c=document.createElement("canvas");c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext("2d").drawImage(im,0,0,c.width,c.height);res(c.toDataURL(type,q))};im.onerror=rej;im.src=r.result};r.onerror=rej;r.readAsDataURL(file)})}
 
+
+/* ================= NOVO (v2.6): relatório de vistoria, visita, andamento e conclusão ================= */
+function relCard(){const m=S.meta,R=rTipo(),f=m.rfotos||[];
+ return`<div class="card stack"><h3>Relatório ${NEW}</h3>
+ <div><span class="lbl">Tipo de relatório</span><div class="chips">${Object.entries(RTIPO).map(([k,v])=>`<button class="chip" data-rt="${k}" aria-pressed="${(m.rtipo||"vistoria")===k}">${v.n}</button>`).join("")}</div><span class="muted" style="font-size:12.5px">Título no PDF: <b>${esc(R.t)}</b></span></div>
+ ${fld("m_resp","Responsável técnico (opcional)",m.resp||"")}
+ <div><label class="lbl" for="m_feito">${esc(R.h)}: o que foi feito ou constatado no local</label><textarea class="in-f" id="m_feito" rows="9" placeholder="Escreva livremente. Deixe uma linha em branco para começar um novo parágrafo.">${esc(m.feito||"")}</textarea></div>
+ <div><label class="lbl" for="m_mats">Materiais utilizados (opcional, um por linha)</label><textarea class="in-f" id="m_mats" rows="4" placeholder="Ex.: 2 Câmera dome 1080p&#10;30 m Cabo coaxial&#10;1 Fonte 12 V">${esc(m.mats||"")}</textarea><div class="row" style="margin-top:6px"><button class="btn sm" id="m_matc">+ Do catálogo</button><span class="muted" style="font-size:12.5px">Quantidade no início da linha vira a coluna Qtd.</span></div></div>
+ <div><span class="lbl">Fotos do relatório</span><div class="photos-g">${f.map((x,i)=>`<div class="ph-c"><img src="${x.img}" alt="Foto ${i+1}"><input class="in-f" data-rfc="${i}" value="${esc(x.cap||"")}" placeholder="Legenda"><button class="btn sm ghost" data-rfx="${i}">Remover</button></div>`).join("")}</div><div class="row" style="margin-top:8px"><button class="btn sm" id="m_rfa">+ Adicionar fotos</button><input type="file" id="m_rff" accept="image/*" multiple hidden></div></div>
+ <div class="stack" style="gap:6px"><label class="chk"><input type="checkbox" id="r_plan" ${S.cfg.rPlan?"checked":""}>Incluir a planta no relatório</label><label class="chk"><input type="checkbox" id="r_cams" ${S.cfg.rCams!==false?"checked":""}>Incluir situação das câmeras${allCams().length?` (${allCams().length})`:" (nenhuma na planta)"}</label></div></div>`}
+function relWire(){const m=S.meta;
+ document.querySelectorAll("[data-rt]").forEach(b=>b.onclick=()=>{const old=rTipo();m.rtipo=b.dataset.rt;if(!m.intro||m.intro===old.i||m.intro===defaultTexts("relatorio").intro)m.intro=rTipo().i;save();vDados()});
+ [["m_resp","resp"],["m_feito","feito"],["m_mats","mats"]].forEach(([id,k])=>{const e=$("#"+id);if(e)e.oninput=()=>{m[k]=e.value;save()}});
+ $("#m_matc").onclick=()=>catalogPick("i",it=>{m.mats=(String(m.mats||"").trim()?m.mats.trim()+"\n":"")+"1 "+it.nome;save();vDados()});
+ document.querySelectorAll("[data-rfc]").forEach(i=>i.oninput=()=>{m.rfotos[+i.dataset.rfc].cap=i.value;save()});
+ document.querySelectorAll("[data-rfx]").forEach(b=>b.onclick=()=>{m.rfotos.splice(+b.dataset.rfx,1);save();vDados()});
+ $("#m_rfa").onclick=()=>$("#m_rff").click();
+ $("#m_rff").onchange=async e=>{m.rfotos=m.rfotos||[];for(const f of [...e.target.files].slice(0,12)){try{m.rfotos.push({img:await shrink(f,1100,"image/jpeg",.75),cap:""})}catch(_){}}save();vDados()};
+ $("#r_plan").onchange=e=>{S.cfg.rPlan=e.target.checked;save()};$("#r_cams").onchange=e=>{S.cfg.rCams=e.target.checked;save()};
+}
 
 /* ================= BANCO DE EQUIPAMENTOS ================= */
 function lensUI(c,l,h){
@@ -1179,7 +1210,7 @@ function logoReady(){const co=DB.company||{},src=co.logo||LOGO_DEF;if(!src)retur
   let x0=W,y0=H,x1=-1,y1=-1;for(let y=0;y<H;y++)for(let x=0;x<W;x++){const k=(y*W+x)*4;if(d[k+3]>16&&!(d[k]>240&&d[k+1]>240&&d[k+2]>240)){if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y}}
   if(x1>x0&&y1>y0&&(x1-x0+1<W*.97||y1-y0+1<H*.97)){const m=Math.round(Math.max(x1-x0,y1-y0)*.02),cx=Math.max(0,x0-m),cy=Math.max(0,y0-m),cw=Math.min(W,x1+m+1)-cx,ch=Math.min(H,y1+m+1)-cy;const o=document.createElement("canvas");o.width=cw;o.height=ch;o.getContext("2d").drawImage(c,cx,cy,cw,ch,0,0,cw,ch);LT.out=o.toDataURL("image/png")}}catch(_){}res()};im.onerror=()=>res();im.src=src});return LT.p}
 function logoHTML(){const co=DB.company;const src=co.logo||LOGO_DEF;if(src)logoReady();const use=LT.src===src?LT.out:src;return src?`<img src="${use}" alt="${esc(co.name)}">`:`<span class="wm">${esc(co.name.toUpperCase()).replace(/^(\S+)/,"<b>$1</b>")}</span>`}
-function head(sub){return`<div class="ph"><div class="lg">${logoHTML()}</div><div class="dn"><b>${esc(DOCT[S.type].n)}</b><span>${sub||`Nº ${esc(S.number)} · ${fmtDate(S.date)}`}</span></div></div>`}
+function head(sub){return`<div class="ph"><div class="lg">${logoHTML()}</div><div class="dn"><b>${esc(docTitle())}</b><span>${sub||`Nº ${esc(S.number)} · ${fmtDate(S.date)}`}</span></div></div>`}
 function brandLine(){const co=DB.company;return[["Site",co.site],["WhatsApp",co.phone],["Instagram",co.insta],["E-mail",co.email]].filter(x=>x[1]).map(([k,v])=>`<span><b>${k.toUpperCase()}</b>${esc(v)}</span>`).join("")}
 function foot(i,n){return`<div class="pf"><div class="bl">${brandLine()}</div><div class="pn">${i?`PÁGINA ${i} / ${n}`:"CNPJ "+esc(DB.company.cnpj)}</div></div>`}
 function coverPage(lay,o){
@@ -1199,7 +1230,7 @@ function coverPage(lay,o){
   <div style="position:absolute;left:84px;right:58px;top:640px"><div class="kv"><div><small>Cliente</small><b>${esc(o.client||"—")}</b></div><div><small>Local</small><b>${esc(o.addr||"—")}</b></div></div><div style="margin-top:28px">${meta}</div></div>
   ${tag.replace("left:58px","left:84px")}${foot(0)}</div>`;
 }
-function cover(){const c=S.client;return coverPage(S.layout,{kicker:"Segurança eletrônica · CFTV",title:DOCT[S.type].n,sub:"Sistema de videomonitoramento",client:c.name,addr:c.address,
+function cover(){const c=S.client;return coverPage(S.layout,{kicker:S.type==="relatorio"?"Relatório técnico":"Segurança eletrônica · CFTV",title:docTitle(),sub:S.type==="relatorio"?"":"Sistema de videomonitoramento",client:c.name,addr:c.address,
  meta:[["Documento","Nº "+S.number],["Data",fmtDate(S.date)],...(S.type==="proposta"?[["Validade",(S.meta&&S.meta.validity?S.meta.validity+" dias":"")]]:[])].filter(x=>x[1])})}
 function camTable(rows,tech){
  return`<table class="t"><thead><tr><th class="c">Nº</th><th>Local</th><th>${S.cfg.showBrand?"Modelo":"Tipo"}</th><th class="c">Lente</th><th class="c">Ângulo</th>${tech?`<th class="c">Detectar</th><th class="c">Observar</th>`:""}<th class="c">Reconhecer</th><th class="c">Identificar</th>${S.type==="relatorio"?`<th>Situação</th>`:""}</tr></thead><tbody>${rows.map(c=>{const l=libOf(c);return`<tr><td class="c"><b>${String(camNo(c)).padStart(2,"0")}</b></td><td>${esc(c.note||"—")}</td><td>${S.cfg.showBrand?esc(l.brand+" "+l.model):esc(l.type+" "+TECHN[l.tech])} · ${l.mp}MP${l.night!=="IR"?" · "+NIGHTN[l.night]:""}</td><td class="c">${l.type==="Fisheye"||!c.lens?"—":f1(c.lens)+" mm"}</td><td class="c">${Math.round(hfov(c))}°</td>${tech?`<td class="c">${f1(doriDist(c,25))} m</td><td class="c">${f1(doriDist(c,62.5))} m</td>`:""}<td class="c">${f1(doriDist(c,125))} m</td><td class="c">${f1(doriDist(c,250))} m</td>${S.type==="relatorio"?`<td><span class="stat" style="background:${STATUS[c.status].c}">${STATUS[c.status].n}</span></td>`:""}</tr>`}).join("")}</tbody></table>`;
@@ -1211,7 +1242,7 @@ function legend(){return`<div class="leg">${DORI.map(d=>`<span><i style="backgro
 function sigs(){return`<div class="sig"><div><b>${esc(DB.company.resp)}</b><br>${esc(DB.company.name)}</div><div><b>${esc(S.client.contact||S.client.name||"Cliente")}</b><br>${esc(S.client.name)}${S.client.doc?" · "+esc(S.client.doc):""}</div></div>`}
 function sec(n,t){return`<h4>${n?`<em>${n}.</em>`:""}${esc(t)}</h4>`}
 function clientKV(){const c=S.client;return`<div class="kv"><div><small>Cliente</small><b>${esc(c.name||"—")}</b></div><div><small>CPF / CNPJ</small><b>${esc(c.doc||"—")}</b></div><div><small>Contato</small><b>${esc([c.contact,c.phone].filter(Boolean).join(" · ")||"—")}</b></div><div><small>Local da instalação</small><b>${esc(c.address||"—")}</b></div></div>`}
-function titleBlock(){return S.layout==="min"?`<div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #F22B0C;padding-bottom:10px"><div style="font-size:24px;font-weight:700">${esc(DOCT[S.type].n)}</div><div style="font-size:11px;text-align:right">Nº ${esc(S.number)}<br>${fmtDate(S.date)}</div></div>`:""}
+function titleBlock(){return S.layout==="min"?`<div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #F22B0C;padding-bottom:10px"><div style="font-size:24px;font-weight:700">${esc(docTitle())}</div><div style="font-size:11px;text-align:right">Nº ${esc(S.number)}<br>${fmtDate(S.date)}</div></div>`:""}
 function scopeList(B,st){const n=allCams().length,nHD=allCams().filter(c=>libOf(c).tech==="HD").length;return`<ul>
  <li>${S.type==="relatorio"?"Vistoria":"Fornecimento e instalação"} de <b>${n} câmeras</b> (${nHD} HD${n-nHD?`, ${n-nHD} IP`:""}), posicionadas conforme a planta de cobertura.</li>
  <li>Gravador ${nHD?"DVR multi-HD":"NVR"} com HD de <b>${st.hd} TB</b>, cerca de <b>${S.cfg.days} dias</b> de gravação ${S.cfg.motion==100?"contínua":"por movimento"} em ${S.cfg.codec}.</li>
@@ -1229,13 +1260,25 @@ function docPages(){
   P(`${sec(4,"Condições comerciais")}<div class="kv"><div><small>Validade da proposta</small><b>${m.validity} dias a partir de ${fmtDate(S.date)}</b></div><div><small>Prazo de execução</small><b>${esc(m.deadline)}</b></div><div><small>Pagamento</small><b>${esc(m.payment)}</b></div><div><small>Garantia</small><b>${esc(m.warranty)}</b></div></div>${vals?`<div class="note"><b>Valor total: ${brl(B.total)}</b></div>`:""}${m.notes?`<h5>Observações</h5><div class="note">${esc(m.notes)}</div>`:""}${sec(0,"Aceite")}<p>Declaro estar de acordo com o escopo, os valores e as condições desta proposta.</p>${sigs()}`);
  }
  if(T==="relatorio"){
-  const cnt={};allCams().forEach(c=>cnt[c.status]=(cnt[c.status]||0)+1);
-  if(S.layout!=="min")P(`${sec(0,"Sumário")}<div class="toc">${["Objetivo e identificação","Resumo da situação","Planta de cobertura","Situação por câmera","Registro fotográfico","Recomendações e observações"].map((t,i)=>`<div><span style="color:#F22B0C;font-weight:700">${i+1}.</span><span>${t}</span></div>`).join("")}</div>`);
-  P(`${titleBlock()}${sec(1,"Objetivo e identificação")}${clientKV()}<p class="txt">${esc(m.intro)}</p>${sec(2,"Resumo da situação")}<div class="mini" style="grid-template-columns:repeat(${Math.max(1,Object.keys(cnt).length)},1fr)">${Object.entries(cnt).map(([k,v])=>`<div style="border-top:4px solid ${STATUS[k].c}"><b>${v}</b><small>${STATUS[k].n}</small></div>`).join("")||"<div>Sem câmeras cadastradas</div>"}</div><p>Total de ${allCams().length} pontos avaliados. Gravador posicionado conforme a planta.</p>`);
-  plan(3);
-  chunk(allCams(),18).forEach((r,i)=>P(`${sec(i?0:4,i?"Situação por câmera (continuação)":"Situação por câmera")}${camTable(r,false)}<table class="t"><thead><tr><th class="c">Nº</th><th>Observação técnica</th></tr></thead><tbody>${r.map(c=>`<tr><td class="c"><b>${String(camNo(c)).padStart(2,"0")}</b></td><td>${STATUS[c.status].n}${c.note?" — "+esc(c.note):""}</td></tr>`).join("")}</tbody></table>`));
-  chunk(allCams().length?allCams():[null],4).forEach((r,i)=>P(`${sec(i?0:5,i?"Registro fotográfico (continuação)":"Registro fotográfico")}<div class="photos">${[0,1,2,3].map(j=>{const c=r[j];if(!c&&j>=r.length&&r[0])return"<div></div>";return`<div class="photo"><div class="im">${c&&c.photo?`<img src="${c.photo}" alt="">`:"Espaço para foto"}</div><div class="cap">${c?`<b>Câmera ${String(camNo(c)).padStart(2,"0")}</b> · ${esc(c.note||"—")} · <span class="stat" style="background:${STATUS[c.status].c}">${STATUS[c.status].n}</span>`:"Foto"}</div></div>`}).join("")}</div>`));
-  P(`${sec(6,"Recomendações e observações")}<ul>${m.recs.split("\n").filter(Boolean).map(l=>`<li>${esc(l)}</li>`).join("")}</ul>${m.notes?`<div class="note">${esc(m.notes)}</div>`:""}${vals?`<h5>Estimativa para adequação</h5>${totBox(B)}`:""}${sigs()}`);
+  const R=rTipo(),cams=allCams(),useCams=S.cfg.rCams!==false&&cams.length>0,usePlan=!!S.cfg.rPlan,blocks=[];let n=0;const B2=x=>blocks.push({html:x});
+  B2(`${titleBlock()}${sec(++n,"Objetivo e identificação")}${clientKV()}<div class="kv"><div><small>Tipo de relatório</small><b>${esc(R.n)}</b></div><div><small>Data</small><b>${fmtDate(S.date)}</b></div>${m.resp?`<div><small>Responsável técnico</small><b>${esc(m.resp)}</b></div>`:""}</div>${m.intro?`<p class="txt">${esc(m.intro)}</p>`:""}`);
+  const paras=String(m.feito||"").split(/\n\s*\n/).map(x=>x.trim()).filter(Boolean);
+  if(paras.length)paras.forEach((t,i)=>B2(`${i?"":sec(++n,R.h)}<p class="txt" style="white-space:pre-wrap">${esc(t)}</p>`));
+  const mats=String(m.mats||"").split("\n").map(x=>x.trim()).filter(Boolean).map(l=>{const k=l.match(/^(\d+(?:[.,]\d+)?)\s*(x|un\.?|und\.?|unid\.?|m|mts?|metros?|pç|pçs|pc|pcs|rolos?|cx|kg)?\.?\s*[-–·:]?\s+(.+)$/i);return k?{q:k[1].replace(".",",")+(k[2]&&!/^x$/i.test(k[2])?" "+k[2].toLowerCase():""),d:k[3]}:{q:"",d:l}});
+  if(mats.length)blocks.push({tbl:{pre:sec(++n,"Materiais utilizados"),head:`<table class="t"><thead><tr><th class="c" style="width:70px">Qtd</th><th>Descrição</th></tr></thead><tbody>`,rows:mats.map(x=>`<tr><td class="c">${esc(x.q||"—")}</td><td>${esc(x.d)}</td></tr>`)}});
+  const cut=blocks.length,planN=usePlan?++n:0;
+  if(useCams){const cnt={};cams.forEach(c=>cnt[c.status]=(cnt[c.status]||0)+1);
+   B2(`${sec(++n,"Resumo da situação das câmeras")}<div class="mini" style="grid-template-columns:repeat(${Math.max(1,Object.keys(cnt).length)},1fr)">${Object.entries(cnt).map(([k,v])=>`<div><b style="color:${(STATUS[k]||{}).c||"#262626"}">${v}</b><small>${esc((STATUS[k]||{n:k}).n)}</small></div>`).join("")}</div>`);
+   const sn=++n;chunk(cams,14).forEach((r,i)=>B2(`${i?"":sec(sn,"Situação por câmera")}${camTable(r,false)}`));
+   blocks.push({tbl:{pre:"<h5>Observação técnica por câmera</h5>",head:`<table class="t"><thead><tr><th class="c">Nº</th><th>Observação técnica</th></tr></thead><tbody>`,rows:cams.map(c=>`<tr><td class="c"><b>${String(camNo(c)).padStart(2,"0")}</b></td><td>${esc((STATUS[c.status]||{n:"—"}).n)}${c.note?" — "+esc(c.note):""}</td></tr>`)}})}
+  const fot=[...(m.rfotos||[]),...(useCams?cams.filter(c=>c.photo).map(c=>({img:c.photo,cap:`Câmera ${String(camNo(c)).padStart(2,"0")}${c.note?" · "+c.note:""}`})):[])];
+  if(fot.length){const fn=++n;for(let k=0;k<fot.length;k+=2){const html=`${k?"":sec(fn,"Registro fotográfico")}<div class="sqrow">${fot.slice(k,k+2).map(f=>`<div class="sq sq2"><div class="im"><img src="${f.img}" alt=""></div>${f.cap?`<div class="cap">${esc(f.cap)}</div>`:""}</div>`).join("")}</div>`;
+   blocks.push({html,fit:(r,h)=>{const nh=290-(h-r)-2;return nh>=150?html.replace(/class="im"/g,`class="im" style="height:${nh}px"`):null}})}}
+  const recs=String(m.recs||"").split("\n").filter(x=>x.trim());
+  if(recs.length||m.notes||vals)B2(`${sec(++n,"Recomendações e observações")}${recs.length?`<ul>${recs.map(l=>`<li>${esc(l)}</li>`).join("")}</ul>`:""}${m.notes?`<div class="note">${esc(m.notes)}</div>`:""}${vals?`<h5>Estimativa para adequação</h5>${totBox(B)}`:""}`);
+  B2(sigs());
+  const pk=bl=>packPages(bl,head(),S.layout).forEach(pg=>pages.push({html:pg.join("")}));
+  if(usePlan){pk(blocks.slice(0,cut));plan(planN);if(blocks.length>cut)pk(blocks.slice(cut))}else pk(blocks);
  }
  if(T==="projeto"){
   P(`${titleBlock()}${sec(1,"Memorial descritivo")}${clientKV()}<p class="txt">${esc(m.intro)}</p>${scopeList(B,st)}<h5>Parâmetros de projeto</h5><div class="kv"><div><small>Critério de cobertura</small><b>DORI · IEC 62676-4</b></div><div><small>Compressão / quadros</small><b>${S.cfg.codec} · ${S.cfg.fps} fps</b></div><div><small>Retenção</small><b>${S.cfg.days} dias · ${S.cfg.motion==100?"contínua":"por movimento"}</b></div><div><small>Área da planta</small><b>${S.floors.map(f=>f1(f.plan.w/f.plan.scale)+" × "+f1(f.plan.h/f.plan.scale)+" m").join(" · ")}</b></div></div>`);
@@ -1257,23 +1300,24 @@ async function vDoc(){
  $("#main").innerHTML=`<section class="view gut"><div class="wrapc">
  <div class="doctools"><div class="row"><select class="in-f" id="dc_t" style="width:auto">${Object.entries(DOCT).map(([k,v])=>`<option value="${k}" ${S.type===k?"selected":""}>${v.n}</option>`).join("")}</select>
  <div class="chips">${Object.entries(LAYOUTS).map(([k,v])=>`<button class="chip" data-ly="${k}" aria-pressed="${S.layout===k}">${v.n}</button>`).join("")}</div></div>
- <div class="row"><label class="chk"><input type="checkbox" id="dc_v" ${S.cfg.showValues?"checked":""}>Valores</label><button class="btn pri" id="dc_pdf">Gerar PDF</button></div></div>
+ <div class="row">${S.type==="relatorio"?`<label class="chk"><input type="checkbox" id="dc_rp" ${S.cfg.rPlan?"checked":""}>Planta</label><label class="chk"><input type="checkbox" id="dc_rc" ${S.cfg.rCams!==false?"checked":""}>Câmeras</label>`:""}<label class="chk"><input type="checkbox" id="dc_v" ${S.cfg.showValues?"checked":""}>Valores</label><button class="btn pri" id="dc_pdf">Gerar PDF</button></div></div>
  <p class="muted" id="dc_info" style="margin:0 0 14px">Montando páginas…</p>
  <div class="prevwrap" id="prev"></div></div></section>`;
  $("#dc_t").onchange=e=>{S.type=e.target.value;S.cfg.showValues=S.type!=="relatorio";Object.assign(S.meta,{intro:defaultTexts(S.type).intro});save();vDoc()};
  document.querySelectorAll("#main [data-ly]").forEach(b=>b.onclick=()=>{S.layout=b.dataset.ly;save();vDoc()});
  $("#dc_v").onchange=e=>{S.cfg.showValues=e.target.checked;save();vDoc()};
+ if($("#dc_rp"))$("#dc_rp").onchange=e=>{S.cfg.rPlan=e.target.checked;save();vDoc()};if($("#dc_rc"))$("#dc_rc").onchange=e=>{S.cfg.rCams=e.target.checked;save();vDoc()};
  $("#dc_pdf").onclick=exportPDF;
  planDatas=await planImagesAll(1500);
  const pages=buildDocHTML(),pv=$("#prev");if(!pv)return;
  const W=Math.min(794,pv.getBoundingClientRect().width||794),k=W/794;
  pv.innerHTML=pages.map(h=>`<div class="pgbox" style="width:${W}px;height:${1123*k}px">${h}</div>`).join("");
  pv.querySelectorAll(".pgbox>.pg").forEach(p=>p.style.transform=`scale(${k})`);
- $("#dc_info").textContent=`${pages.length} páginas A4 · ${DOCT[S.type].n} · layout ${LAYOUTS[S.layout].n}`;
+ $("#dc_info").textContent=`${pages.length} páginas A4 · ${docTitle()} · layout ${LAYOUTS[S.layout].n}`;
 }
 async function exportPDF(){
  await document.fonts.ready;planDatas=await planImagesAll(1800);
- await renderPDF(buildDocHTML(),`${S.number} ${DOCT[S.type].n} ${S.client.name||""}`+".pdf",$("#dc_pdf"));
+ await renderPDF(buildDocHTML(),`${S.number} ${docTitle()} ${S.client.name||""}`+".pdf",$("#dc_pdf"));
 }
 function toB64(data){return new Promise(res=>{const b=data instanceof Blob?data:new Blob([data]);const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]);r.readAsDataURL(b)})}
 let dl;async function saveFile(name,data){
@@ -1830,6 +1874,7 @@ function quotePages(q){
 
 /* ---------- novidades ---------- */
 const NEWS={feitos:[
+ ["Relatório livre","Vistoria, visita técnica, durante ou pós-serviço: texto do que foi feito, materiais utilizados, fotos com legenda; planta e câmeras opcionais.","Pedido seu"],
  ["Modelo do PDF no orçamento","Executivo, Clássico ou Compacto no topo do orçamento; recibo e ordem de serviço seguem o mesmo modelo.","Pedido seu"],
  ["Pós-venda por cliente","Na ficha do cliente: lembrete em 1, 3, 6 ou 12 meses, notificação no dia, mensagem pronta no WhatsApp e histórico. Começa sozinho quando o orçamento é aprovado.","Pedido seu"],
  ["Foto no item e no serviço","Anexe foto do equipamento ou de como o serviço é feito; no PDF sai uma grade de fotos grandes depois dos itens, sem deixar espaço vazio.","Pedido seu"],
