@@ -781,10 +781,10 @@ async function montaPdf(d,p){
       tx(titulo.toUpperCase(),W-M-4,13,{b:1,s:11.5,a:'right',c:dk});tx(metaTxt,W-M-4,18.2,{s:8,a:'right',c:GRAY});fill(acc,W-M-0.9,8,0.9,13.2);
       hline(M,29,W-M,[222,222,218],.25);yTop=36;
     }else if(mod==='classic'){
-      fill(acc,0,0,4,H);fill(dk,4,0,W-4,1.6);
-      if(LG)logoImg(M+2,7,LG);else tx(nome,M+2,15,{b:1,s:15,c:dk});
-      tx(titulo.toUpperCase(),W-M,12.5,{b:1,s:13,a:'right',c:acc});tx(metaTxt,W-M,18,{s:8,a:'right',c:GRAY});
-      hline(M,29,W-M,dk,.5);yTop=36;
+      fill(dk,M,8,CW,.5);fill(dk,M,9.4,CW,.2);
+      if(LG)logoImg(M,13,LG);else tx(nome,M,22,{b:1,s:15,c:dk});
+      tx(titulo.toUpperCase(),W-M,20,{b:1,s:13,a:'right',c:dk});tx(metaTxt,W-M,25.5,{s:8,a:'right',c:GRAY});
+      hline(M,34,W-M,acc,.8);yTop=41;
     }else if(mod==='min'){
       if(LG)logoImg(M,7,LG);else tx(nome,M,12,{b:1,s:12,c:dk});
       tx(titulo.toUpperCase()+'  '+numTxt,W-M,10.2,{b:1,s:9.5,a:'right',c:INK});tx(meta.slice(1).join('  ·  '),W-M,14.6,{s:7.6,a:'right',c:GRAY});
@@ -833,18 +833,18 @@ async function montaPdf(d,p){
     const LGc=await logoDims(mod==='bold'?84:96,mod==='bold'?52:60,true);
     const cx=W/2,clr=mod==='bold'?accT:INK,sec=mod==='bold'?clareia(acc,0):GRAY;
     if(mod==='exec'){fill(acc,0,0,58,2.2);fill(dk,58,0,W-58,2.2)}
-    else if(mod==='classic'){fill(acc,0,0,14,H);fill(dk,14,0,W-14,1.6)}
+    else if(mod==='classic'){pdf.setDrawColor(...dk);pdf.setLineWidth(.6);pdf.rect(10,10,W-20,H-30);pdf.setLineWidth(.2);pdf.rect(12,12,W-24,H-34);fill(acc,10,10,W-20,2.2)}
     else if(mod==='bold'){fill(acc,0,0,W,H);fill(dk,0,H-78,W,78);fill(acc,0,H-78,W,1.6)}
     const tcol=mod==='bold'?accT:dk,kcol=mod==='bold'?accT:acc;
     const yL=mod==='min'?40:52;
     if(LGc){if(mod==='bold'){fill([255,255,255],cx-LGc.w/2-6,yL-6,LGc.w+12,LGc.h+12,3)}logoImg(cx-LGc.w/2,yL,LGc)}else tx(nome,cx,yL+16,{b:1,s:26,a:'center',c:tcol});
     const yK=Math.max(yL+(LGc?LGc.h:20)+28,112);
     tx(kicker,cx,yK,{b:1,s:10,a:'center',c:kcol,cs:.9});tx(tit,cx,yK+18,{b:1,s:mod==='bold'?40:36,a:'center',c:tcol});fill(mod==='bold'?dk:acc,cx-16,yK+24,32,1.4);
-    const bx=cx+(mod==='classic'?7:0);
+    const bx=cx;
     let yy=mod==='bold'?H-60:Math.max(yK+60,168);
     const dc=mod==='bold'?dkT:INK,gc=mod==='bold'?clareia(dk,.6):GRAY;
     if(c.nome){tx('PREPARADO PARA',bx,yy,{b:1,s:7.4,a:'center',c:mod==='bold'?acc:GRAY,cs:.5});tx(cl,bx,yy+10,{b:1,s:19,a:'center',c:dc});sub.slice(0,2).forEach((l,i)=>tx(l,bx,yy+17+i*5,{s:9.5,a:'center',c:gc}));}
-    const iy=mod==='bold'?H-24:Math.max(yy+(c.nome?50:0),224);const L0=M+(mod==='classic'?14:0),CW2=W-M-L0,n=info.length;
+    const iy=mod==='bold'?H-24:Math.max(yy+(c.nome?50:0),224);const L0=M,CW2=W-M-L0,n=info.length;
     hline(L0,iy-9,W-M,mod==='bold'?clareia(dk,.25):[222,222,218],.3);
     info.forEach(([k,v],i)=>{const xc=L0+CW2*(i+.5)/n;tx(k.toUpperCase(),xc,iy,{b:1,s:6.8,a:'center',c:gc,cs:.3});tx(v,xc,iy+6,{b:1,s:11,a:'center',c:dc})});
   };
