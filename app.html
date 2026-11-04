@@ -1085,7 +1085,7 @@ function vMais(m){
     <button class="li" id="mInst">${ic('install')}<div class="grow"><div class="t">Instalar no celular</div><div class="s">Android e iPhone</div></div></button>
   </div>
   
-  <p class="muted" style="font-size:12px;text-align:center;margin-top:18px">Orçamento · versão 1.0 · seus dados ficam salvos neste aparelho${Cloud.user?' e na nuvem':''}</p>`;
+  <p class="muted" style="font-size:12px;text-align:center;margin-top:18px">Orçamento · versão 18 · seus dados ficam salvos neste aparelho${Cloud.user?' e na nuvem':''}</p>`;
   $$('[data-go]',m).forEach(b=>b.onclick=()=>go(b.dataset.go));
   $('#mEmp',m).onclick=()=>editEmpresa();$('#mConta',m).onclick=()=>contaSheet();const ma=$('#mAtv',m);if(ma)ma.onclick=()=>ativarSheet();const md=$('#mAdm',m);if(md){md.onclick=()=>adminSheet();contarAguardando()}$('#mBk',m).onclick=()=>backupSheet();$('#mInst',m).onclick=()=>installSheet();$('#mRel',m).onclick=()=>relatorios();
   $('#mTema',m).onclick=()=>{const o=['auto','light','dark'];const n=o[(o.indexOf(prefs.get('tema','auto'))+1)%3];prefs.set('tema',n);applyTema();vMais(m)};
@@ -1546,7 +1546,7 @@ function boot(){
   gate();
   go(view);
   try{const nv=new URLSearchParams(location.search).get('novo');if(nv&&TIPOS[nv]){prefs.set('visto',true);$$('#layer .sheet').forEach(x=>x.remove());novoDoc(nv)}}catch(e){}
-  if('serviceWorker'in navigator&&location.protocol==='https:'){navigator.serviceWorker.register('sw.js').catch(()=>{})}
+  if('serviceWorker'in navigator&&location.protocol==='https:'){navigator.serviceWorker.register('sw.js').then(r=>r.update()).catch(()=>{});let had=!!navigator.serviceWorker.controller;navigator.serviceWorker.addEventListener('controllerchange',()=>{if(had&&!sessionStorage.getItem('rl')){sessionStorage.setItem('rl','1');location.reload()}had=true})}
   setInterval(checkLembretes,60000);setTimeout(checkLembretes,3000);
   if(Cloud.user){Cloud.registrar();Cloud.sync()}
   window.addEventListener('online',()=>Cloud.push());
