@@ -756,7 +756,7 @@ async function montaPdf(d,p){
   const compact=mod==='min';
   const sz={body:compact?8.6:9.2,row:compact?6:7,lab:6.8};
   const font=(b,s,col)=>{pdf.setFont('helvetica',b?'bold':'normal');pdf.setFontSize(s);pdf.setTextColor(...(col||INK))};
-  const tx=(s,x,y,o={})=>{font(o.b,o.s||sz.body,o.c);if(o.cs)pdf.setCharSpace(o.cs);pdf.text(PT(s),x,y,o.a?{align:o.a}:undefined);if(o.cs)pdf.setCharSpace(0)};
+  const tx=(s,x,y,o={})=>{font(o.b,o.s||sz.body,o.c);const t=PT(s);if(o.cs){const w=pdf.getTextWidth(t)+o.cs*(t.length-1);const x0=o.a==='center'?x-w/2:o.a==='right'?x-w:x;pdf.setCharSpace(o.cs);pdf.text(t,x0,y);pdf.setCharSpace(0)}else pdf.text(t,x,y,o.a?{align:o.a}:undefined)};
   const wrap=(s,w,sizeV,b)=>{font(b,sizeV);return pdf.splitTextToSize(PT(s),w)};
   const fill=(col,x,y,w,h,r)=>{pdf.setFillColor(...col);r?pdf.roundedRect(x,y,w,h,r,r,'F'):pdf.rect(x,y,w,h,'F')};
   const hline=(x1,y,x2,col,w)=>{pdf.setDrawColor(...col);pdf.setLineWidth(w||.2);pdf.line(x1,y,x2,y)};
@@ -860,7 +860,7 @@ async function montaPdf(d,p){
       if(mod==='exec'){fill(acc,x,y,.9,h)}else if(mod==='classic'){pdf.setDrawColor(...[222,222,218]);pdf.setLineWidth(.3);pdf.rect(x,y,colW,h);fill(acc,x,y,colW,.9)}else{fill(clareia(acc,.93),x,y,colW,h,2.2)}
       const x0=x+(mod==='exec'?3.6:4);lab(rot,x0,y+4.6);let yy=y+9.8;nmL.forEach(l=>{tx(l,x0,yy,{b:1,s:11});yy+=5});lsL.forEach(l=>{tx(l,x0,yy-.4,{s:8.2,c:GRAY});yy+=3.9});return h};
     const hh=Math.max(7+wrap(nome,colW-8,11,true).length*5+linhasEmit.flatMap(l=>wrap(l,colW-8,8.2)).length*3.9+3,7+wrap(c.nome||'—',colW-8,11,true).length*5+linhasCli.flatMap(l=>wrap(l,colW-8,8.2)).length*3.9+3);
-    need(hh+4);const h1=bloco(M,'Emitente',nome,linhasEmit),h2=bloco(M+colW+10,'Cliente',c.nome||'—',linhasCli);y+=Math.max(h1,h2)+7;
+    need(hh+4);const h1=bloco(M,'Emitente',nome,linhasEmit),h2=c.nome?bloco(M+colW+10,'Cliente',c.nome,linhasCli):0;y+=Math.max(h1,h2)+7;
   };
   const paragrafo=(rot,txt,{ink=INK,size}={})=>{if(!String(txt||'').trim())return;const ls=[];String(txt).split('\n').forEach(par=>ls.push(...wrap(par||' ',CW,size||sz.body)));need(9);lab(rot,M,y+2.6);y+=6.4;
     ls.forEach(L=>{need(4.4);tx(L,M,y,{s:size||sz.body,c:ink});y+=compact?3.9:4.25});y+=2.8};
