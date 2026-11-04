@@ -6,7 +6,7 @@ App web instalável (PWA) para autônomos e pequenas empresas: orçamentos, orde
 - **Documentos:** orçamento, ordem de serviço (equipamento, defeito, laudo), pedido de venda, recibo (valor por extenso) e contrato (modelo com campos automáticos).
 - Produtos e serviços em seções separadas, desconto em R$ ou %, acréscimo/deslocamento, validade, prazo, garantia, forma de pagamento, PIX.
 - Fotos no PDF, assinatura do cliente na tela e assinatura da empresa salva.
-- PDF com logo e cor escolhida; enviar pelo WhatsApp ou compartilhar o arquivo.
+- PDF em 4 modelos (Executivo, Clássico, Compacto, Impactante), capa opcional, produtos e serviços separados, cores e logo por empresa, garantia permanente, formas/condições de pagamento e QR Code Pix com valor.
 - Converter orçamento em OS, pedido, contrato ou recibo; duplicar; situação (rascunho, enviado, aprovado, recusado…).
 - **Clientes** com histórico, WhatsApp e ligação.
 - **Catálogo** com foto, custo, preço e margem; importar/exportar CSV (`tipo;nome;unidade;preco;custo;categoria`).
