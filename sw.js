@@ -1,5 +1,5 @@
 // Service worker: deixa o app abrir sem internet.
-const VERSAO = 'orcamento-v16';
+const VERSAO = 'orcamento-v17';
 const BASE = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './vendor/jspdf.umd.min.js', './vendor/qrcode.js',
   'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'];
 

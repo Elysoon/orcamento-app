@@ -844,8 +844,9 @@ async function montaPdf(d,p){
     let yy=mod==='bold'?H-60:Math.max(yK+60,168);
     const dc=mod==='bold'?dkT:INK,gc=mod==='bold'?clareia(dk,.6):GRAY;
     if(c.nome){tx('PREPARADO PARA',bx,yy,{b:1,s:7.4,a:'center',c:mod==='bold'?acc:GRAY,cs:.5});tx(cl,bx,yy+10,{b:1,s:19,a:'center',c:dc});sub.slice(0,2).forEach((l,i)=>tx(l,bx,yy+17+i*5,{s:9.5,a:'center',c:gc}));}
-    const iy=mod==='bold'?H-24:Math.max(yy+(c.nome?50:0),224),wI=info.length*44-12;let x0=bx-wI/2;
-    info.forEach(([k,v])=>{tx(k.toUpperCase(),x0+16,iy,{b:1,s:6.8,a:'center',c:gc,cs:.3});tx(v,x0+16,iy+6,{b:1,s:11,a:'center',c:dc});x0+=44});
+    const iy=mod==='bold'?H-24:Math.max(yy+(c.nome?50:0),224);const L0=M+(mod==='classic'?14:0),CW2=W-M-L0,n=info.length;
+    hline(L0,iy-9,W-M,mod==='bold'?clareia(dk,.25):[222,222,218],.3);
+    info.forEach(([k,v],i)=>{const xc=L0+CW2*(i+.5)/n;tx(k.toUpperCase(),xc,iy,{b:1,s:6.8,a:'center',c:gc,cs:.3});tx(v,xc,iy+6,{b:1,s:11,a:'center',c:dc})});
   };
 
   /* ---------- partes (emitente / cliente) ---------- */
