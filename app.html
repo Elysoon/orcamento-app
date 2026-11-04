@@ -755,7 +755,7 @@ async function montaPdf(d,p){
   const M=mod==='min'?14:15,CW=W-2*M;
   const compact=mod==='min';
   const sz={body:compact?8.6:9.2,row:compact?6:7,lab:6.8};
-  const font=(b,s,col)=>{pdf.setFont('helvetica',b?'bold':'normal');pdf.setFontSize(s);pdf.setTextColor(...(col||INK))};
+  const font=(b,s,col)=>{pdf.setFont(mod==='classic'?'times':'helvetica',b?'bold':'normal');pdf.setFontSize(s);pdf.setTextColor(...(col||INK))};
   const tx=(s,x,y,o={})=>{font(o.b,o.s||sz.body,o.c);const t=PT(s);if(o.cs){const w=pdf.getTextWidth(t)+o.cs*(t.length-1);const x0=o.a==='center'?x-w/2:o.a==='right'?x-w:x;pdf.setCharSpace(o.cs);pdf.text(t,x0,y);pdf.setCharSpace(0)}else pdf.text(t,x,y,o.a?{align:o.a}:undefined)};
   const wrap=(s,w,sizeV,b)=>{font(b,sizeV);return pdf.splitTextToSize(PT(s),w)};
   const fill=(col,x,y,w,h,r)=>{pdf.setFillColor(...col);r?pdf.roundedRect(x,y,w,h,r,r,'F'):pdf.rect(x,y,w,h,'F')};
@@ -781,10 +781,9 @@ async function montaPdf(d,p){
       tx(titulo.toUpperCase(),W-M-4,13,{b:1,s:11.5,a:'right',c:dk});tx(metaTxt,W-M-4,18.2,{s:8,a:'right',c:GRAY});fill(acc,W-M-0.9,8,0.9,13.2);
       hline(M,29,W-M,[222,222,218],.25);yTop=36;
     }else if(mod==='classic'){
-      fill(dk,M,8,CW,.5);fill(dk,M,9.4,CW,.2);
-      if(LG)logoImg(M,13,LG);else tx(nome,M,22,{b:1,s:15,c:dk});
-      tx(titulo.toUpperCase(),W-M,20,{b:1,s:13,a:'right',c:dk});tx(metaTxt,W-M,25.5,{s:8,a:'right',c:GRAY});
-      hline(M,34,W-M,acc,.8);yTop=41;
+      if(LG)logoImg(M,10,LG);else tx(nome,M,20,{b:1,s:17,c:dk});
+      tx(titulo,W-M,17,{b:1,s:19,a:'right',c:dk});tx(metaTxt,W-M,23.5,{s:8.4,a:'right',c:GRAY});
+      hline(M,33,W-M,dk,.3);yTop=41;
     }else if(mod==='min'){
       if(LG)logoImg(M,7,LG);else tx(nome,M,12,{b:1,s:12,c:dk});
       tx(titulo.toUpperCase()+'  '+numTxt,W-M,10.2,{b:1,s:9.5,a:'right',c:INK});tx(meta.slice(1).join('  ·  '),W-M,14.6,{s:7.6,a:'right',c:GRAY});
@@ -800,7 +799,11 @@ async function montaPdf(d,p){
   const rodape=(i,n,isCapa)=>{
     const itens=[['SITE',p.site],['WHATSAPP',p.tel],['INSTAGRAM',p.insta],['E-MAIL',p.email]].filter(x=>x[1]);
     const pag=isCapa?(p.doc?'CNPJ/CPF '+p.doc:''):`PÁGINA ${i} / ${n}`;
-    if(mod==='exec'||mod==='classic'){
+    if(mod==='classic'){
+      hline(M,283.6,W-M,[205,205,200],.2);
+      const ct=[p.site,p.tel,p.insta,p.email].filter(Boolean).join('   ·   ');let fs=7.4;font(0,fs);while(pdf.getTextWidth(PT(ct))>CW&&fs>5)fs-=.3,font(0,fs);
+      tx(ct,W/2,288.6,{s:fs,a:'center',c:GRAY});tx(isCapa?(p.doc?'CNPJ/CPF '+p.doc:''):`${i} / ${n}`,W/2,293,{s:7.2,a:'center',c:GRAY});
+    }else if(mod==='exec'){
       hline(M,284.4,W-M,[222,222,218],.25);
       let fs=7.2;const medir=()=>itens.reduce((a,[k,v])=>{font(1,fs-1);const wk=pdf.getTextWidth(PT(k))+1.6;font(0,fs);return a+wk+pdf.getTextWidth(PT(v))+5},0);
       while(medir()>CW-34&&fs>5.2)fs-=.3;
@@ -821,7 +824,7 @@ async function montaPdf(d,p){
   const lab=(s,x,yy)=>tx(s.toUpperCase(),x,yy,{b:1,s:sz.lab,c:GRAY,cs:.25});
   const secTitulo=(s)=>{need(14);
     if(mod==='exec'){tx(s.toUpperCase(),M,y+3,{b:1,s:8.4,c:acc,cs:.35});y+=7.5}
-    else if(mod==='classic'){fill(acc,M,y-.4,1.6,6.4);tx(s.toUpperCase(),M+4,y+3.8,{b:1,s:8.8,c:dk,cs:.3});y+=9}
+    else if(mod==='classic'){tx(s,M,y+4,{b:1,s:12,c:dk});hline(M,y+6.2,W-M,[200,200,196],.2);y+=10.5}
     else if(mod==='min'){tx(s.toUpperCase(),M,y+3,{b:1,s:7.8,c:INK,cs:.3});y+=7.5}
     else{fill(acc,M,y,CW,6.2);tx(s.toUpperCase(),M+3,y+4.3,{b:1,s:8.4,c:accT,cs:.35});y+=11}};
 
@@ -833,7 +836,7 @@ async function montaPdf(d,p){
     const LGc=await logoDims(mod==='bold'?84:96,mod==='bold'?52:60,true);
     const cx=W/2,clr=mod==='bold'?accT:INK,sec=mod==='bold'?clareia(acc,0):GRAY;
     if(mod==='exec'){fill(acc,0,0,58,2.2);fill(dk,58,0,W-58,2.2)}
-    else if(mod==='classic'){pdf.setDrawColor(...dk);pdf.setLineWidth(.6);pdf.rect(10,10,W-20,H-30);pdf.setLineWidth(.2);pdf.rect(12,12,W-24,H-34);fill(acc,10,10,W-20,2.2)}
+    
     else if(mod==='bold'){fill(acc,0,0,W,H);fill(dk,0,H-78,W,78);fill(acc,0,H-78,W,1.6)}
     const tcol=mod==='bold'?accT:dk,kcol=mod==='bold'?accT:acc;
     const yL=mod==='min'?40:52;
@@ -858,7 +861,7 @@ async function montaPdf(d,p){
       y+=5;tx('Cliente: ',M,y+3,{b:1,s:8.4});font(0,8.4);pdf.text(PT([c.nome||'—',...linhasCli].join(' - ')),M+pdf.getTextWidth('Cliente: ')+.6,y+3);y+=9;return}
     const colW=(CW-10)/2;
     const bloco=(x,rot,nm,ls)=>{const nmL=wrap(nm||'—',colW-8,11,true);const lsL=ls.flatMap(l=>wrap(l,colW-8,8.2));const h=7+nmL.length*5+lsL.length*3.9+3;
-      if(mod==='exec'){fill(acc,x,y,.9,h)}else if(mod==='classic'){pdf.setDrawColor(...[222,222,218]);pdf.setLineWidth(.3);pdf.rect(x,y,colW,h);fill(acc,x,y,colW,.9)}else{fill(clareia(acc,.93),x,y,colW,h,2.2)}
+      if(mod==='exec'){fill(acc,x,y,.9,h)}else if(mod==='classic'){hline(x,y,x+colW,dk,.4)}else{fill(clareia(acc,.93),x,y,colW,h,2.2)}
       const x0=x+(mod==='exec'?3.6:4);lab(rot,x0,y+4.6);let yy=y+9.8;nmL.forEach(l=>{tx(l,x0,yy,{b:1,s:11});yy+=5});lsL.forEach(l=>{tx(l,x0,yy-.4,{s:8.2,c:GRAY});yy+=3.9});return h};
     const hh=Math.max(7+wrap(nome,colW-8,11,true).length*5+linhasEmit.flatMap(l=>wrap(l,colW-8,8.2)).length*3.9+3,7+wrap(c.nome||'—',colW-8,11,true).length*5+linhasCli.flatMap(l=>wrap(l,colW-8,8.2)).length*3.9+3);
     need(hh+4);const h1=bloco(M,'Emitente',nome,linhasEmit),h2=c.nome?bloco(M+colW+10,'Cliente',c.nome,linhasCli):0;y+=Math.max(h1,h2)+7;
@@ -872,7 +875,7 @@ async function montaPdf(d,p){
   const descW=(temDp?colX.q-M-14:colX.q-M-12);
   const cabTab=(titulo)=>{
     const hh=mod==='classic'?7:6.8;
-    if(mod==='exec'){hline(M,y,W-M,dk,.35);hline(M,y+hh,W-M,acc,.9)}else if(mod==='classic'){fill(clareia(dk,.92),M,y,CW,hh);fill(acc,M,y+hh-.7,CW,.7)}else if(mod==='min'){hline(M,y+hh,W-M,dk,.4)}else{fill(dk,M,y,CW,hh)}
+    if(mod==='exec'){hline(M,y,W-M,dk,.35);hline(M,y+hh,W-M,acc,.9)}else if(mod==='classic'){hline(M,y+hh,W-M,dk,.3)}else if(mod==='min'){hline(M,y+hh,W-M,dk,.4)}else{fill(dk,M,y,CW,hh)}
     const cc=mod==='bold'?dkT:dk,yy=y+hh-2.1;
     tx('DESCRIÇÃO',M+(mod==='exec'||mod==='min'?0:2.2),yy,{b:1,s:6.9,c:cc,cs:.2});tx('QTD',colX.q,yy,{b:1,s:6.9,c:cc,a:'right'});tx('UN',colX.u,yy,{b:1,s:6.9,c:cc});tx('UNITÁRIO',colX.v,yy,{b:1,s:6.9,c:cc,a:'right'});
     if(temDp)tx('DESC.',colX.dp,yy,{b:1,s:6.9,c:cc,a:'right'});tx('TOTAL',colX.t,yy,{b:1,s:6.9,c:cc,a:'right'});y+=hh+1.2};
@@ -881,7 +884,7 @@ async function montaPdf(d,p){
     its.forEach((it,i)=>{
       const ls=wrap(it.nome||'',descW,sz.body-.2,false);const ds=it.desc?wrap(it.desc,descW,7.4):[];const lh=compact?3.8:4.1;const h=Math.max(sz.row+1.4,ls.length*lh+ds.length*3.4+3.2);
       if(y+h>yBot){novaPagina();cabTab()}
-      if(mod==='classic'&&i%2)fill([248,248,246],M,y,CW,h);if(mod==='bold'&&i%2)fill(clareia(acc,.94),M,y,CW,h);
+      if(mod==='bold'&&i%2)fill(clareia(acc,.94),M,y,CW,h);
       const x0=M+(mod==='exec'||mod==='min'?0:2.2);let yy=y+3.8;ls.forEach(L=>{tx(L,x0,yy,{s:sz.body-.2});yy+=lh});ds.forEach(L=>{tx(L,x0,yy-.2,{s:7.4,c:GRAY});yy+=3.4});
       tx(fnum(it.qtd,num(it.qtd)%1?2:0),colX.q,y+3.8,{s:sz.body-.2,a:'right'});tx(it.un||'',colX.u,y+3.8,{s:sz.body-.2,c:GRAY});tx(money(it.preco),colX.v,y+3.8,{s:sz.body-.2,a:'right'});
       if(temDp)tx(num(it.dp)>0?'-'+fnum(it.dp,num(it.dp)%1?1:0)+'%':'',colX.dp,y+3.8,{s:7.6,a:'right',c:GRAY});tx(money(itTot(it)),colX.t,y+3.8,{b:1,s:sz.body-.2,a:'right'});
@@ -896,7 +899,7 @@ async function montaPdf(d,p){
     const bw=mod==='bold'?86:78,bx=W-M-bw;const bh=mod==='min'?9:11;need(rows.length*5.2+bh+8);
     rows.forEach(([l,v])=>{tx(l,bx+2,y+3.6,{s:sz.body,c:GRAY});tx(v,W-M-2,y+3.6,{s:sz.body,a:'right'});y+=5.2});y+=1.4;
     if(mod==='exec'){fill(acc,bx,y,bw,bh);tx('TOTAL',bx+4,y+7.2,{b:1,s:10.5,c:accT,cs:.4});tx(money(t.total),W-M-4,y+7.4,{b:1,s:13.5,a:'right',c:accT})}
-    else if(mod==='classic'){fill(dk,bx,y,bw,bh);fill(acc,bx,y,1.8,bh);tx('TOTAL',bx+5,y+7.2,{b:1,s:10,c:dkT,cs:.4});tx(money(t.total),W-M-4,y+7.4,{b:1,s:13.5,a:'right',c:dkT})}
+    else if(mod==='classic'){hline(bx,y,W-M,dk,.4);tx('Total',bx+2,y+7.2,{b:1,s:12,c:INK});tx(money(t.total),W-M-2,y+7.4,{b:1,s:15,a:'right',c:INK});hline(bx,y+bh,W-M,dk,.4)}
     else if(mod==='min'){hline(bx,y,W-M,dk,.5);tx('TOTAL',bx+2,y+6.2,{b:1,s:10,c:INK});tx(money(t.total),W-M-2,y+6.4,{b:1,s:12.5,a:'right',c:INK});hline(bx,y+8.4,W-M,acc,.9)}
     else{fill(dk,bx,y,bw,13,2.4);fill(acc,bx,y,3,13,1.2);tx('VALOR TOTAL',bx+7,y+5.2,{b:1,s:7,c:acc,cs:.4});tx(money(t.total),W-M-4,y+9.6,{b:1,s:16.5,a:'right',c:dkT})}
     y+=(mod==='bold'?13:bh)+7};
@@ -1085,7 +1088,7 @@ function vMais(m){
     <button class="li" id="mInst">${ic('install')}<div class="grow"><div class="t">Instalar no celular</div><div class="s">Android e iPhone</div></div></button>
   </div>
   
-  <p class="muted" style="font-size:12px;text-align:center;margin-top:18px">Orçamento · versão 18 · seus dados ficam salvos neste aparelho${Cloud.user?' e na nuvem':''}</p>`;
+  <p class="muted" style="font-size:12px;text-align:center;margin-top:18px">Orçamento · versão 19 · seus dados ficam salvos neste aparelho${Cloud.user?' e na nuvem':''}</p>`;
   $$('[data-go]',m).forEach(b=>b.onclick=()=>go(b.dataset.go));
   $('#mEmp',m).onclick=()=>editEmpresa();$('#mConta',m).onclick=()=>contaSheet();const ma=$('#mAtv',m);if(ma)ma.onclick=()=>ativarSheet();const md=$('#mAdm',m);if(md){md.onclick=()=>adminSheet();contarAguardando()}$('#mBk',m).onclick=()=>backupSheet();$('#mInst',m).onclick=()=>installSheet();$('#mRel',m).onclick=()=>relatorios();
   $('#mTema',m).onclick=()=>{const o=['auto','light','dark'];const n=o[(o.indexOf(prefs.get('tema','auto'))+1)%3];prefs.set('tema',n);applyTema();vMais(m)};
