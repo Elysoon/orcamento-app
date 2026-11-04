@@ -768,8 +768,11 @@ async function montaPdf(d,p){
   const wrap=(s,w,sizeV,b)=>{font(b,sizeV);return pdf.splitTextToSize(PT(s),w)};
   const fill=(col,x,y,w,h,r)=>{pdf.setFillColor(...col);r?pdf.roundedRect(x,y,w,h,r,r,'F'):pdf.rect(x,y,w,h,'F')};
   const hline=(x1,y,x2,col,w)=>{pdf.setDrawColor(...col);pdf.setLineWidth(w||.2);pdf.line(x1,y,x2,y)};
-  const logoDims=async(maxW,maxH)=>{if(!p.logo)return null;const[w,h]=await imgSize(p.logo);const s=Math.min(maxW/w,maxH/h);return{w:w*s,h:h*s}};
-  const logoImg=(x,y,dm)=>pdf.addImage(p.logo,imgFmt(p.logo),x,y,dm.w,dm.h);
+  let LOGO=p.logo,trimmed=false;
+  const trimLogo=async()=>{if(trimmed||!/^data:image\/(png|webp|gif)/.test(LOGO))return;trimmed=true;try{const im=await new Promise((r,j)=>{const i=new Image();i.onload=()=>r(i);i.onerror=j;i.src=LOGO});const cv=document.createElement('canvas');cv.width=im.width;cv.height=im.height;const g=cv.getContext('2d');g.drawImage(im,0,0);const dt=g.getImageData(0,0,cv.width,cv.height).data;let x0=cv.width,y0=cv.height,x1=0,y1=0;for(let y=0;y<cv.height;y++)for(let x=0;x<cv.width;x++){const i=(y*cv.width+x)*4;if(dt[i+3]>12&&!(dt[i]>245&&dt[i+1]>245&&dt[i+2]>245)){if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y}}
+    if(x1>x0&&y1>y0&&(x1-x0<cv.width*.97||y1-y0<cv.height*.97)){const c2=document.createElement('canvas');c2.width=x1-x0+1;c2.height=y1-y0+1;c2.getContext('2d').drawImage(cv,x0,y0,c2.width,c2.height,0,0,c2.width,c2.height);LOGO=c2.toDataURL('image/png')}}catch(e){}};
+  const logoDims=async(maxW,maxH)=>{if(!LOGO)return null;await trimLogo();const[w,h]=await imgSize(LOGO);const s=Math.min(maxW/w,maxH/h);return{w:w*s,h:h*s}};
+  const logoImg=(x,y,dm)=>pdf.addImage(LOGO,imgFmt(LOGO),x,y,dm.w,dm.h);
   const titulo=T.n;const numTxt='Nº '+docNum(d);
   const meta=[numTxt,'Data: '+fdate(d.data)];
   if(d.tipo==='ORC'&&d.validade)meta.push('Validade: '+Math.max(0,Math.round((new Date(d.validade+'T12:00:00')-new Date(d.data+'T12:00:00'))/864e5))+' dias');
@@ -835,33 +838,22 @@ async function montaPdf(d,p){
     const cl=c.nome||'—';const sub=[c.doc?'CPF/CNPJ: '+c.doc:'',c.end,[c.tel,c.email].filter(Boolean).join('  ·  ')].filter(Boolean);
     const kicker=d.tipo==='ORC'?'PROPOSTA COMERCIAL':d.tipo==='OS'?'ORDEM DE SERVIÇO':d.tipo==='PED'?'PEDIDO DE VENDA':'CONTRATO DE SERVIÇOS';
     const tit=T.n;const info=[['Documento',numTxt.replace('Nº ','Nº ')],['Data',fdate(d.data)]];if(d.tipo==='ORC'&&d.validade)info.push(['Validade',fdate(d.validade)]);
-    const LGc=await logoDims(mod==='bold'?70:80,mod==='bold'?36:44);
-    const metaRow=(x0,y0,col,colL,al)=>{let x=x0;info.forEach(([k,v])=>{tx(k.toUpperCase(),x,y0,{b:1,s:6.8,c:colL,cs:.3});tx(v,x,y0+6,{b:1,s:11,c:col});x+=44})};
-    if(mod==='exec'){
-      fill(acc,0,0,58,2.2);fill(dk,58,0,W-58,2.2);
-      if(LGc)logoImg((W-LGc.w)/2,52,LGc);else tx(nome,W/2,70,{b:1,s:26,a:'center',c:dk});
-      tx(kicker,W/2,118,{b:1,s:10,a:'center',c:acc,cs:.9});tx(tit,W/2,136,{b:1,s:38,a:'center',c:dk});fill(acc,W/2-16,142,32,1.4);
-      tx('PREPARADO PARA',W/2,172,{b:1,s:7.4,a:'center',c:GRAY,cs:.5});tx(cl,W/2,183,{b:1,s:19,a:'center',c:INK});
-      sub.forEach((l,i)=>tx(l,W/2,191+i*5,{s:9.5,a:'center',c:GRAY}));
-      metaRow(W/2-(info.length*44-12)/2,228,INK,GRAY);
-    }else if(mod==='classic'){
-      fill(acc,0,0,14,H);fill(dk,14,0,W-14,1.6);
-      if(LGc)logoImg(34,30,LGc);else tx(nome,34,44,{b:1,s:22,c:dk});
-      fill(dk,34,108,24,1.6);tx(kicker,34,120,{b:1,s:9.5,c:acc,cs:.8});tx(tit,34,138,{b:1,s:38,c:dk});
-      fill(acc,34,170,1.2,26);tx('CLIENTE',39,174,{b:1,s:7,c:GRAY,cs:.4});tx(cl,39,182,{b:1,s:16,c:INK});sub.slice(0,2).forEach((l,i)=>tx(l,39,189+i*5,{s:9.5,c:GRAY}));
-      metaRow(34,228,INK,GRAY);
-    }else if(mod==='min'){
-      if(LGc)logoImg(M,16,{w:LGc.w*.6,h:LGc.h*.6});else tx(nome,M,24,{b:1,s:14,c:dk});
-      hline(M,60,W-M,dk,.6);tx(kicker,M,72,{b:1,s:8.5,c:GRAY,cs:.6});tx(tit,M,88,{b:1,s:30,c:INK});
-      tx('Cliente',M,112,{s:8,c:GRAY});tx(cl,M,119,{b:1,s:15,c:INK});sub.slice(0,2).forEach((l,i)=>tx(l,M,125+i*5,{s:9,c:GRAY}));
-      metaRow(M,150,INK,GRAY);
-    }else{
-      fill(acc,0,0,W,H);fill(dk,0,H-72,W,72);fill(acc,0,H-72,W,1.6);
-      if(LGc){fill([255,255,255],24,26,LGc.w+10,LGc.h+10,3);logoImg(29,31,LGc)}else tx(nome,24,44,{b:1,s:22,c:accT});
-      tx(kicker,24,118,{b:1,s:10,c:accT,cs:.9});tx(tit.toUpperCase(),24,142,{b:1,s:44,c:accT});fill(dk,24,150,40,2);
-      tx('PREPARADO PARA',24,H-54,{b:1,s:7.4,c:acc,cs:.5});tx(cl,24,H-44,{b:1,s:20,c:dkT});sub.slice(0,2).forEach((l,i)=>tx(l,24,H-36+i*5.2,{s:9.5,c:clareia(dk,.6)}));
-      metaRow(24,H-22,dkT,clareia(dk,.55));
-    }
+    const LGc=await logoDims(mod==='bold'?84:96,mod==='bold'?52:60,true);
+    const cx=W/2,clr=mod==='bold'?accT:INK,sec=mod==='bold'?clareia(acc,0):GRAY;
+    if(mod==='exec'){fill(acc,0,0,58,2.2);fill(dk,58,0,W-58,2.2)}
+    else if(mod==='classic'){fill(acc,0,0,14,H);fill(dk,14,0,W-14,1.6)}
+    else if(mod==='bold'){fill(acc,0,0,W,H);fill(dk,0,H-78,W,78);fill(acc,0,H-78,W,1.6)}
+    const tcol=mod==='bold'?accT:dk,kcol=mod==='bold'?accT:acc;
+    const yL=mod==='min'?40:52;
+    if(LGc){if(mod==='bold'){fill([255,255,255],cx-LGc.w/2-6,yL-6,LGc.w+12,LGc.h+12,3)}logoImg(cx-LGc.w/2,yL,LGc)}else tx(nome,cx,yL+16,{b:1,s:26,a:'center',c:tcol});
+    const yK=Math.max(yL+(LGc?LGc.h:20)+28,112);
+    tx(kicker,cx,yK,{b:1,s:10,a:'center',c:kcol,cs:.9});tx(tit,cx,yK+18,{b:1,s:mod==='bold'?40:36,a:'center',c:tcol});fill(mod==='bold'?dk:acc,cx-16,yK+24,32,1.4);
+    const bx=cx+(mod==='classic'?7:0);
+    let yy=mod==='bold'?H-60:Math.max(yK+60,168);
+    const dc=mod==='bold'?dkT:INK,gc=mod==='bold'?clareia(dk,.6):GRAY;
+    if(c.nome){tx('PREPARADO PARA',bx,yy,{b:1,s:7.4,a:'center',c:mod==='bold'?acc:GRAY,cs:.5});tx(cl,bx,yy+10,{b:1,s:19,a:'center',c:dc});sub.slice(0,2).forEach((l,i)=>tx(l,bx,yy+17+i*5,{s:9.5,a:'center',c:gc}));}
+    const iy=mod==='bold'?H-24:Math.max(yy+(c.nome?50:0),224),wI=info.length*44-12;let x0=bx-wI/2;
+    info.forEach(([k,v])=>{tx(k.toUpperCase(),x0+16,iy,{b:1,s:6.8,a:'center',c:gc,cs:.3});tx(v,x0+16,iy+6,{b:1,s:11,a:'center',c:dc});x0+=44});
   };
 
   /* ---------- partes (emitente / cliente) ---------- */
