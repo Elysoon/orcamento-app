@@ -642,7 +642,7 @@ const uid=()=>Math.random().toString(36).slice(2,9);
 const today=()=>{const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10)};
 const fmtDate=d=>{if(!d)return"";const[y,m,dd]=d.split("-");return`${dd}/${m}/${y}`};
 let toastT;function toast(m){let t=$(".toast");if(!t){t=document.createElement("div");t.className="toast";document.body.appendChild(t)}t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2600)}
-const APP_VER="2.7.0";
+const APP_VER="2.7.1";
 function remoteVer(){const base=location.protocol==="https:"?location.origin+location.pathname.replace(/[^/]*$/,""):"https://elysoon.github.io/orcamento-app/projeta/";
  return fetch(base+"versao.json?nc="+Date.now(),{cache:"no-store"}).then(r=>r.ok?r.json():null).then(j=>j&&j.v||"").catch(()=>"")}
 /* versão do GitHub: se a publicada for mais nova que a aberta, recarrega uma vez sem cache */
@@ -1895,12 +1895,22 @@ function certPDF(c){renderPDF(certPages(c),certNome(c),null)}
 function certWhats(c){const t=`Olá${c.cliente?" "+c.cliente.split(" ")[0]:""}! Segue o certificado de garantia nº ${c.num} da ${DB.company.name}. Garantia de ${garPrazo(Math.max(1,+c.meses||12))}: de ${fmtDate(c.saida||c.data)} até ${fmtDate(certFim(c))}. Guarde este arquivo. O PDF vai em seguida.`;
  const ph=String(c.tel||"").replace(/\D/g,"");if(ph.length>=10)openLink(`https://wa.me/${ph.startsWith("55")?ph:"55"+ph}?text=${encodeURIComponent(t)}`);else copy(t)}
 function certFromQuote(q){const cli=DB.col.clients.find(x=>x.id===q.cliId)||{};
- certForm({cliente:q.cliente,tel:q.tel,end:q.end,doc:cli.doc||"",servico:(q.itens||[]).filter(o=>!o.o&&String(o.d||"").trim()).slice(0,8).map(o=>o.d).join("; "),layout:qLay(q),quoteId:q.id})}
-function certListHtml(){const l=[...(DB.col.certs||[])].sort((a,b)=>(+b.id)-(+a.id)).slice(0,8);
- return l.length?`<h3 style="margin-top:6px">Emitidos</h3><div class="camlist">${l.map(c=>`<div class="camrow"><span class="d"><b>${esc(c.cliente||"Sem cliente")}</b><br><span class="muted">Nº ${esc(c.num)} · ${garPrazo(Math.max(1,+c.meses||12))} · até ${fmtDate(certFim(c))}</span></span><button class="btn sm" data-cg="${c.id}" data-a="pdf">PDF</button><button class="btn sm" data-cg="${c.id}" data-a="wa">WhatsApp</button><button class="btn sm" data-cg="${c.id}" data-a="ed">Editar</button><button class="btn sm ghost" data-cg="${c.id}" data-a="x">Excluir</button></div>`).join("")}</div>`:`<p class="muted" style="margin:0;font-size:13px">Nenhum certificado emitido ainda.</p>`}
-function certListBind(){document.querySelectorAll("[data-cg]").forEach(b=>b.onclick=()=>{const c=(DB.col.certs||[]).find(x=>String(x.id)===b.dataset.cg);if(!c)return;const a=b.dataset.a;
- if(a==="pdf")certPDF(c);else if(a==="wa")certWhats(c);else if(a==="ed")certForm(c);
- else confirmSheet("Excluir certificado?",`${c.num?"Nº "+c.num+" · ":""}${c.cliente||""}`,"Excluir",()=>{removeRec("certs",c.id);const l=$("#gc_list");if(l){l.innerHTML=certListHtml();certListBind()}toast("Certificado excluído")})})}
+ certForm({cliId:q.cliId,cliente:q.cliente,tel:q.tel,end:q.end,doc:cli.doc||"",servico:(q.itens||[]).filter(o=>!o.o&&String(o.d||"").trim()).slice(0,8).map(o=>o.d).join("; "),layout:qLay(q),quoteId:q.id})}
+function certRows(l){return`<div class="camlist">${l.map(c=>`<div class="camrow" style="flex-wrap:wrap"><span class="d"><b>${esc(c.cliente||"Sem cliente")}</b><br><span class="muted">Nº ${esc(c.num)} · ${esc(String(c.servico||"").slice(0,40))} · ${garPrazo(Math.max(1,+c.meses||12))} · até ${fmtDate(certFim(c))}</span></span><span class="row" style="gap:6px;flex-wrap:wrap"><button class="btn sm" data-cg="${c.id}" data-a="pdf">PDF</button><button class="btn sm" data-cg="${c.id}" data-a="wa">Enviar</button><button class="btn sm" data-cg="${c.id}" data-a="ed">Editar</button><button class="btn sm" data-cg="${c.id}" data-a="dup">Duplicar</button><button class="btn sm ghost" data-cg="${c.id}" data-a="x">Excluir</button></span></div>`).join("")}</div>`}
+function certListHtml(q){const all=[...(DB.col.certs||[])].sort((a,b)=>(+b.id)-(+a.id)),l=all.filter(c=>!q||norm(`${c.cliente} ${c.doc} ${c.tel} ${c.num} ${c.servico}`).includes(norm(q)));
+ return all.length?`<h3 style="margin-top:6px">Emitidos (${all.length})</h3>${all.length>4?`<input class="in-f" id="gc_q" placeholder="Buscar por cliente, CPF/CNPJ, número…" value="${esc(q||"")}" autocomplete="off">`:""}${l.length?certRows(l.slice(0,40)):`<p class="muted" style="margin:0;font-size:13px">Nada encontrado.</p>`}`:`<p class="muted" style="margin:0;font-size:13px">Nenhum certificado emitido ainda.</p>`}
+function certListRefresh(redo){const l=$("#gc_list");if(l){const q=$("#gc_q");const v=q?q.value:"";l.innerHTML=certListHtml(v);certListBind(redo);const n=$("#gc_q");if(n){n.oninput=()=>{l.innerHTML=certListHtml(n.value);certListBind(redo);const z=$("#gc_q");if(z){z.focus();z.setSelectionRange(z.value.length,z.value.length);z.oninput=n.oninput}};}}}
+function certListBind(redo){const re=redo||(()=>{const l=$("#gc_list");if(l)certListRefresh()});document.querySelectorAll("[data-cg]").forEach(b=>b.onclick=()=>{const c=(DB.col.certs||[]).find(x=>String(x.id)===b.dataset.cg);if(!c)return;const a=b.dataset.a;
+ if(a==="pdf")certPDF(c);else if(a==="wa")certWhats(c);else if(a==="ed")certForm(Object.assign({},c));
+ else if(a==="dup")certForm(Object.assign({},c,{id:0,num:"",data:today(),saida:today()}));
+ else confirmSheet("Excluir certificado?",`${c.num?"Nº "+c.num+" · ":""}${c.cliente||""}`,"Excluir",()=>{removeRec("certs",c.id);re();toast("Certificado excluído")})})}
+function certClient(c){const dg=x=>String(x||"").replace(/\D/g,"");
+ let k=c.cliId&&DB.col.clients.find(x=>x.id===c.cliId);
+ if(!k&&dg(c.doc).length>=11)k=DB.col.clients.find(x=>dg(x.doc)===dg(c.doc));
+ if(!k)k=DB.col.clients.find(x=>norm(x.nome)===norm(c.cliente));
+ if(k){let ch=false;[["tel","tel"],["doc","doc"],["end","end"]].forEach(([a,b])=>{if(c[a]&&!k[b]){k[b]=c[a];ch=true}});if(ch)upsert("clients",k)}
+ else{k={id:newId("clients"),nome:c.cliente,tel:c.tel||"",doc:c.doc||"",end:c.end||"",uf:"PA",cidade:"",obs:""};upsert("clients",k)}
+ c.cliId=k.id}
 function certForm(src){
  const co=DB.company,c=Object.assign({id:0,num:"",cliente:"",tel:"",end:"",doc:"",servico:"",local:"",data:today(),saida:today(),meses:+co.garMeses||12,layout:DB.opt.qlay&&LAYOUTS[DB.opt.qlay]?DB.opt.qlay:"exec",capa:"",termos:null},src||{});
  const m=modal(sheetHead(c.id?"Editar certificado":"Certificado de garantia")+`<div class="stack"><div class="row" style="justify-content:space-between"><b>Cliente</b><button class="btn sm" id="cg_pc">Escolher cliente cadastrado</button></div>
@@ -1917,9 +1927,9 @@ function certForm(src){
  ["cg_sai","cg_mes","cg_dat"].forEach(id=>{$("#"+id,m).oninput=$("#"+id,m).onchange=fim});fim();
  m.querySelectorAll("[data-cl]").forEach(b=>b.onclick=()=>{c.layout=b.dataset.cl;m.querySelectorAll("[data-cl]").forEach(z=>z.setAttribute("aria-pressed",z===b))});
  m.querySelectorAll("[data-cc]").forEach(b=>b.onclick=()=>{c.capa=b.dataset.cc;m.querySelectorAll("[data-cc]").forEach(z=>z.setAttribute("aria-pressed",z===b))});
- $("#cg_pc",m).onclick=()=>{read();clientPick(k=>{c.cliente=k.nome;c.tel=k.tel||"";c.doc=k.doc||"";c.end=[k.end,k.cidade&&k.cidade+(k.uf?" - "+k.uf:"")].filter(Boolean).join(", ");m.remove();certForm(c)})};
+ $("#cg_pc",m).onclick=()=>{read();clientPick(k=>{c.cliId=k.id;c.cliente=k.nome;c.tel=k.tel||"";c.doc=k.doc||"";c.end=[k.end,k.cidade&&k.cidade+(k.uf?" - "+k.uf:"")].filter(Boolean).join(", ");m.remove();certForm(c)})};
  const save=()=>{read();if(!c.cliente){toast("Informe o nome do cliente.");return false}if(!c.servico.trim()){toast("Descreva o serviço ou produto coberto.");return false}
-  if(!c.id){c.id=newId("certs");DB.cseq=(DB.cseq||0)+1;c.num=String(DB.cseq).padStart(4,"0")}upsert("certs",c);const l=$("#gc_list");if(l){l.innerHTML=certListHtml();certListBind()}return true};
+  if(!c.id){c.id=newId("certs");DB.cseq=(DB.cseq||0)+1;c.num=String(DB.cseq).padStart(4,"0")}certClient(c);upsert("certs",c);certListRefresh();return true};
  $("#cg_s",m).onclick=()=>{if(save()){m.remove();toast("Certificado salvo")}};$("#cg_p",m).onclick=()=>{if(save()){m.remove();certPDF(c)}};
 }
 
@@ -2307,15 +2317,18 @@ function vClients(){
 }
 function clientSheet(c){
  const qs=DB.col.quotes.filter(q=>q.cliId===c.id).sort((a,b)=>b.id-a.id),ps=Object.values(DB.projects).filter(p=>p.client?.cliId===c.id);
- const ph=String(c.tel||"").replace(/\D/g,""),eqs=eqOf(c.id);
+ const ph=String(c.tel||"").replace(/\D/g,""),eqs=eqOf(c.id),cs=(DB.col.certs||[]).filter(x=>x.cliId===c.id||(!x.cliId&&norm(x.cliente)===norm(c.nome))).sort((a,b)=>(+b.id)-(+a.id));
  const m=modal(sheetHead(esc(c.nome))+`<div class="stack" style="gap:6px;margin-bottom:14px">${[c.tel&&"Telefone: "+c.tel,c.doc&&"CPF/CNPJ: "+c.doc,c.end,[c.cidade,c.uf].filter(Boolean).join(" - "),c.obs].filter(Boolean).map(x=>`<span>${esc(x)}</span>`).join("")}</div>
  <div class="row">${ph.length>=10?`<a class="btn" href="https://wa.me/${ph.startsWith("55")?ph:"55"+ph}" target="_blank" rel="noopener">WhatsApp</a>`:""}<button class="btn" id="cs_e">Editar</button><button class="btn pri" id="cs_q">Novo orçamento</button><button class="btn" id="cs_p">Novo projeto CFTV</button></div>
  ${posvCard(c)}
  <div class="row" style="justify-content:space-between;margin-top:18px"><h3>Equipamentos (${eqs.length}) ${NEW}</h3><button class="btn sm" id="cs_eq">+ Equipamento</button></div><div class="camlist" style="margin-top:8px">${eqs.map(e=>`<button class="camrow" data-oe="${e.id}"><span class="n" style="background:var(--red)">${esc(eqTipo(e.tipo).slice(0,1))}</span><span class="d"><b>${esc(e.nome)}</b><br><span class="muted">${esc([eqTipo(e.tipo),[e.marca,e.modelo].filter(Boolean).join(" "),e.ip||e.ddns].filter(Boolean).join(" · "))}</span></span></button>`).join("")||`<p class="muted">Nenhum. Cadastre DVR, NVR, câmeras, roteador e alarme com usuário, senha e e-mail.</p>`}</div>
  <h3 style="margin-top:14px">Orçamentos (${qs.length})</h3><div class="camlist" style="margin-top:8px">${qs.map(q=>`<button class="camrow" data-oq="${q.id}"><span class="d"><b>${q.num?"Nº "+esc(q.num):"Orçamento"}</b><br><span class="muted">${stamp(q.id)}</span></span><span class="num">${brl(qTotal(q))}</span></button>`).join("")||`<p class="muted">Nenhum.</p>`}</div>
+ <div class="row" style="justify-content:space-between;margin-top:14px"><h3>Certificados de garantia (${cs.length})</h3><button class="btn sm" id="cs_g">+ Certificado</button></div><div id="cs_gl" style="margin-top:8px">${cs.length?certRows(cs):`<p class="muted">Nenhum.</p>`}</div>
  <h3 style="margin-top:14px">Propostas e relatórios (${ps.length})</h3><div class="camlist" style="margin-top:8px">${ps.map(p=>`<button class="camrow" data-op="${p.id}"><span class="d"><b>${docKind(p)} · ${esc(p.type==="relatorio"?(RTIPO[p.meta&&p.meta.rtipo]||RTIPO.vistoria).n:p.number)}</b><br><span class="muted">${p.ts?"salvo "+new Date(p.ts).toLocaleDateString("pt-BR"):esc(p.number)}${pCams(p).length?` · ${pCams(p).length} câmeras`:""}</span></span></button>`).join("")||`<p class="muted">Nenhum.</p>`}</div>
  <button class="btn ghost" id="cs_x" style="margin-top:16px">Excluir cliente</button>`);wireClose(m);
  $("#cs_e",m).onclick=()=>{m.remove();clientForm(c)};
+ $("#cs_g",m).onclick=()=>{m.remove();certForm({cliId:c.id,cliente:c.nome,tel:c.tel||"",doc:c.doc||"",end:[c.end,c.cidade&&c.cidade+(c.uf?" - "+c.uf:"")].filter(Boolean).join(", ")})};
+ certListBind(()=>{m.remove();clientSheet(c)});
  $("#cs_q",m).onclick=()=>{m.remove();openQuote(null,{cliId:c.id,cliente:c.nome,tel:c.tel||"",end:[c.end,c.cidade&&c.cidade+(c.uf?" - "+c.uf:"")].filter(Boolean).join(", ")})};
  $("#cs_p",m).onclick=()=>{m.remove();wizard(c)};
  $("#cs_eq",m).onclick=()=>{m.remove();equipForm(c,null)};
@@ -2512,7 +2525,7 @@ function vCompany(){
  document.querySelectorAll("[data-pal]").forEach(b=>b.onclick=()=>{const[x,y]=b.dataset.pal.split("|");co.cor=x;co.cor2=y;$("#co_cor").value=x;$("#co_cor2").value=y;document.querySelectorAll("[data-pal]").forEach(z=>z.setAttribute("aria-pressed",z===b));cfgChanged()});
  $("#gc_new").onclick=()=>certForm(null);
  $("#gc_def").onclick=()=>{co.garCert=GARANTIA_ESM;$("#co_garCert").value=GARANTIA_ESM;cfgChanged();toast("Texto do certificado atualizado")};
- certListBind();
+ certListRefresh();
  $("#co_gsync").onclick=()=>{const n=syncGarantia();if(authCloud())runSync(true);toast(`Garantia sincronizada em ${DB.col.quotes.length} orçamento${DB.col.quotes.length===1?"":"s"}${n?`; ${n} tinham cópia antiga e foram atualizados`:""}`)};
  $("#co_gar").onclick=()=>{const t=GARANTIA_ESM;const go=()=>{rememberCond(co.cond);co.cond=t;$("#co_cond").value=t;cfgChanged();const n=syncGarantia();toast(`Garantia atualizada em todos os orçamentos${n?` (${n} limpos)`:""}`)};if(String(co.cond||"").trim()&&co.cond!==t)confirmSheet("Trocar as condições padrão?","O texto atual será substituído pela garantia padrão da ESM.","Trocar",go);else go()};
  if($("#e_upd"))$("#e_upd").onclick=async()=>{const b=$("#e_upd");b.disabled=true;b.textContent="Verificando…";const v=await remoteVer();
