@@ -248,9 +248,15 @@ const TIPOS={
   OS:{n:'Ordem de serviço',p:'Ordens de serviço',st:['Aberta','Em andamento','Concluída','Cancelada']},
   PED:{n:'Pedido de venda',p:'Pedidos',st:['Aberto','Faturado','Entregue','Cancelado']},
   REC:{n:'Recibo',p:'Recibos',st:['Emitido']},
+  GAR:{n:'Certificado de garantia',p:'Certificados de garantia',st:['Emitido','Cancelado']},
   CTR:{n:'Contrato',p:'Contratos',st:['Rascunho','Enviado','Assinado','Cancelado']},
 };
 const ST_STYLE={Rascunho:'s-dash',Aberta:'s-dash',Aberto:'s-dash',Enviado:'s-out','Em andamento':'s-out',Faturado:'s-out',Aprovado:'s-full','Concluída':'s-full',Entregue:'s-full',Emitido:'s-full',Assinado:'s-full',Recusado:'s-x',Cancelada:'s-x',Cancelado:'s-x'};
+const GAR_TERMOS=`1. A garantia cobre defeitos de instalação e de fabricação dos itens e serviços descritos neste certificado, durante o prazo indicado, contado a partir da data de saída/entrega.
+2. A garantia não cobre danos causados por mau uso, quedas, líquidos, descargas elétricas, variações de energia, desgaste natural, nem por manutenção ou intervenção feita por terceiros não autorizados.
+3. Para acionar a garantia, apresente este certificado e entre em contato pelos canais da empresa.
+4. O atendimento em garantia consiste no reparo ou na substituição do item ou serviço com defeito, a critério técnico, sem custo de mão de obra durante a vigência.
+5. Esta garantia é complementar à garantia legal prevista no Código de Defesa do Consumidor.`;
 const CONTRATO_PADRAO=`CONTRATO DE PRESTAÇÃO DE SERVIÇOS
 
 CONTRATANTE: {cliente}, inscrito(a) sob o CPF/CNPJ {cliente_doc}, residente/sediado(a) em {cliente_endereco}.
@@ -277,10 +283,10 @@ CONTRATADA: {empresa}, inscrita sob o CPF/CNPJ {empresa_doc}, com sede em {empre
 const FORMAS_PAD=['Cartão de crédito','Cartão de débito','Dinheiro','Cheque','Boleto','Fiado','Transferência bancária','Pix'];
 const CONDS_PAD=['À vista','Parcelado em 2x','Parcelado em até 6 vezes','3x sem juros','20% de entrada + 30/60/90 dias','50% de entrada e restante na entrega','10% de entrada e restante parcelado'];
 const mkLista=(nomes,ligados)=>nomes.map(n=>({id:uid(),nome:n,on:ligados.includes(n)}));
-const SEQ0=()=>({ORC:1,OS:1,PED:1,REC:1,CTR:1});
+const SEQ0=()=>({ORC:1,OS:1,PED:1,REC:1,CTR:1,GAR:1});
 function perfilBlank(){return{id:uid(),nome:'',razao:'',doc:'',tel:'',email:'',end:'',cidade:'',site:'',insta:'',resp:'',pix:'',pixNome:'',pixCidade:'',qrPix:true,logo:'',assin:'',moeda:'R$',validade:15,prefixo:'',
   cor:'#151515',cor2:'#262626',modelo:'exec',capa:false,
-  condicoes:'Pagamento: 50% na aprovação e 50% na entrega.',garantia:'90 dias para serviços, conforme o Código de Defesa do Consumidor; produtos conforme garantia do fabricante.',termos:'',
+  condicoes:'Pagamento: 50% na aprovação e 50% na entrega.',garantia:'90 dias para serviços, conforme o Código de Defesa do Consumidor; produtos conforme garantia do fabricante.',termos:'',garMeses:12,garTermos:GAR_TERMOS,
   obs:'',rodape:'Obrigado pela preferência!',separar:true,fotosPdf:true,contrato:CONTRATO_PADRAO,
   formas:mkLista(FORMAS_PAD,['Pix']),conds:mkLista(CONDS_PAD,[]),seq:SEQ0()}}
 function blank(){const p=perfilBlank();return{
@@ -429,7 +435,7 @@ function vHome(m){
   $$('[data-new]',m).forEach(b=>b.onclick=()=>novoDoc(b.dataset.new));
   bindRows(m);
 }
-function docRow(d){const c=cli(d.clienteId);const t=totals(d);return`<button class="li" data-doc="${d.id}"><div class="grow"><div class="row"><span class="t grow">${esc(c?c.nome:'Sem cliente')}</span><span class="tab" style="font-weight:700">${money(t.total)}</span></div><div class="row"><span class="s grow"><span class="num">${TIPOS[d.tipo].n} ${docNum(d)}</span> · ${fdate(d.data)}</span><span class="st ${ST_STYLE[d.status]||'s-out'}">${esc(d.status)}</span></div></div></button>`}
+function docRow(d){const c=cli(d.clienteId);const t=totals(d);return`<button class="li" data-doc="${d.id}"><div class="grow"><div class="row"><span class="t grow">${esc(c?c.nome:'Sem cliente')}</span><span class="tab" style="font-weight:700">${d.tipo==='GAR'?garPrazo(num(d.garMeses)||12):money(t.total)}</span></div><div class="row"><span class="s grow"><span class="num">${TIPOS[d.tipo].n} ${docNum(d)}</span> · ${fdate(d.data)}</span><span class="st ${ST_STYLE[d.status]||'s-out'}">${esc(d.status)}</span></div></div></button>`}
 function evRow(e){const c=cli(e.clienteId);const dd=e.data===today()?'Hoje':e.data===addDays(today(),1)?'Amanhã':fdate(e.data);return`<button class="li" data-ev="${e.id}"><div style="width:54px;text-align:center"><div style="font-weight:800" class="tab">${esc(e.hora||'--:--')}</div><div class="s" style="font-size:11px">${dd}</div></div><div class="grow"><div class="t" style="${e.feito?'text-decoration:line-through;color:var(--muted)':''}">${esc(e.titulo)}</div><div class="s">${esc(c?c.nome:'')}${e.local?' · '+esc(e.local):''}</div></div></button>`}
 function bindRows(m){$$('[data-doc]',m).forEach(b=>b.onclick=()=>verDoc(b.dataset.doc));$$('[data-ev]',m).forEach(b=>b.onclick=()=>editEvento(S.agenda.find(e=>e.id===b.dataset.ev)))}
 
@@ -533,8 +539,12 @@ function novoDoc(tipo,base={}){
     pagamento:e.condicoes,formas:e.formas.filter(x=>x.on).map(x=>x.nome),conds:e.conds.filter(x=>x.on).map(x=>x.nome),entrada:0,parcelas:1,venc1:'',
     prazo:'',garantia:e.garantia,termos:e.termos,obs:e.obs,modelo:'',capa:'',qr:'',fotos:[],assinCliente:'',assinEmpresa:true,equipamento:'',defeito:'',laudo:'',valor:0,referente:'',forma:'PIX',texto:'',createdAt:Date.now()},base);
   if(tipo==='CTR'&&!d.texto)d.texto=perfilDe(d).contrato;
+  if(tipo==='GAR'){d.termos=base.termos!=null?base.termos:e.garTermos;d.garMeses=base.garMeses||e.garMeses||12;d.saida=base.saida||today()}
   editDoc(d,true);
 }
+const garPrazo=m=>m%12===0?`${m/12} ${m/12>1?'anos':'ano'}`:`${m} ${m>1?'meses':'mês'}`;
+const garFim=d=>addMonths(d.saida||d.data||today(),Math.max(1,num(d.garMeses)||12));
+const garTxt=d=>`Garantia de ${garPrazo(Math.max(1,num(d.garMeses)||12))}: de ${fdate(d.saida||d.data)} até ${fdate(garFim(d))}.`;
 function editDoc(d0,isNew=false){
   const d=JSON.parse(JSON.stringify(d0));
   d.formas=lista(d.formas);d.conds=lista(d.conds);if(!d.perfilId)d.perfilId=S.perfilId;
@@ -568,8 +578,14 @@ function editDoc(d0,isNew=false){
         <label class="f">Referente a<textarea id="fRef">${esc(d.referente)}</textarea></label>
         <label class="f">Forma de pagamento<select id="fForma">${['PIX','Dinheiro','Cartão de crédito','Cartão de débito','Transferência','Boleto','Cheque'].map(o=>`<option ${o===d.forma?'selected':''}>${o}</option>`).join('')}</select></label>
         <label class="row" style="gap:8px;font-weight:600"><input type="checkbox" id="fLanc" style="width:auto" ${d._lancar!==false?'checked':''}> Lançar como entrada no financeiro</label></div>`:''}
+      ${tipo==='GAR'?`<div class="card stack"><span class="eyebrow">Certificado de garantia</span>
+        <label class="f">Serviço / produto coberto<textarea id="fRef" placeholder="Ex.: Instalação de 4 câmeras de segurança e DVR">${esc(d.referente)}</textarea></label>
+        <label class="f">Local / equipamento (opcional)<input id="fEq" value="${esc(d.equipamento)}"></label>
+        <div class="g2"><label class="f">Data de saída / entrega<input type="date" id="fSaida" value="${esc(d.saida)}"></label><label class="f">Prazo (meses)<input id="fGarM" inputmode="numeric" value="${esc(d.garMeses)}"></label></div>
+        <div class="muted" id="fGarFim" style="font-size:13px">${esc(garTxt(d))}</div>
+        <label class="f">Condições da garantia<textarea id="fTer" style="min-height:160px">${esc(d.termos)}</textarea></label></div>`:''}
       ${tipo==='CTR'?`<div class="card stack"><span class="eyebrow">Texto do contrato</span><div class="muted" style="font-size:13px">Campos entre chaves são preenchidos sozinhos no PDF: {cliente}, {valor}, {itens}, {prazo}, {data_extenso}…</div><textarea id="fTxt" style="min-height:280px;font-size:14px">${esc(d.texto)}</textarea></div>`:''}
-      ${tipo!=='REC'?`<div class="card stack">${pf.separar?sec('i','Produtos')+'<hr class="sep">'+sec('s','Serviços'):sec('i','Itens e serviços')}</div>
+      ${tipo!=='REC'&&tipo!=='GAR'?`<div class="card stack">${pf.separar?sec('i','Produtos')+'<hr class="sep">'+sec('s','Serviços'):sec('i','Itens e serviços')}</div>
       <div class="card stack"><span class="eyebrow">Valores</span>
         <div id="fTot">${totHtml(t)}</div>
         <div class="g2"><button type="button" class="tile" id="tDesc">${ic('tag')}<span>Descontos</span><b>${money(t.desc)}</b></button><button type="button" class="tile" id="tFrete">${ic('truck')}<span>Frete</span><b>${money(t.frete)}</b></button></div>
@@ -590,6 +606,10 @@ function editDoc(d0,isNew=false){
         <label class="f">Capa<select id="fCapa"><option value="" ${d.capa===''||d.capa==null?'selected':''}>Padrão da empresa (${pf.capa?'com capa':'sem capa'})</option><option value="1" ${d.capa==='1'?'selected':''}>Com capa</option><option value="0" ${d.capa==='0'?'selected':''}>Sem capa</option></select></label></div>
         <label class="f">QR Code do Pix<select id="fQr"><option value="" ${!d.qr?'selected':''}>Padrão da empresa (${pf.qrPix!==false?'mostrar':'ocultar'})</option><option value="1" ${d.qr==='1'?'selected':''}>Mostrar</option><option value="0" ${d.qr==='0'?'selected':''}>Ocultar</option></select></label>
         <button type="button" class="btn ghost" id="fPrev">${ic('eye')}Ver como ficou (PDF)</button></div>`:''}
+      ${tipo==='GAR'?`<div class="card stack"><span class="eyebrow">Aparência do PDF</span>
+        <div class="g2"><label class="f">Modelo<select id="fMod"><option value="">Padrão da empresa (${MODELOS[MODEL_DEFAULT(pf)].n})</option>${Object.entries(MODELOS).map(([k,v])=>`<option value="${k}" ${d.modelo===k?'selected':''}>${v.n}</option>`).join('')}</select></label>
+        <label class="f">Capa<select id="fCapa"><option value="" ${d.capa===''||d.capa==null?'selected':''}>Padrão da empresa (${pf.capa?'com capa':'sem capa'})</option><option value="1" ${d.capa==='1'?'selected':''}>Com capa</option><option value="0" ${d.capa==='0'?'selected':''}>Sem capa</option></select></label></div>
+        <button type="button" class="btn ghost" id="fPrev">${ic('eye')}Ver como ficou (PDF)</button></div>`:''}
       <div class="card stack"><div class="row"><span class="eyebrow grow">Fotos (${d.fotos.length})</span><label class="btn sm ghost">${ic('cam')}Adicionar<input type="file" id="fFoto" accept="image/*" multiple hidden></label></div>
         ${d.fotos.length?`<div class="thumbs">${d.fotos.map((f,i)=>`<div class="thumb-x"><img src="${f.src}" alt="Foto ${i+1}"><button data-delfoto="${i}" aria-label="Remover foto">×</button></div>`).join('')}</div>`:'<div class="muted" style="font-size:13px">Fotos do local ou do serviço entram no PDF.</div>'}</div>
       <div class="card stack"><span class="eyebrow">Assinaturas</span>
@@ -603,7 +623,7 @@ function editDoc(d0,isNew=false){
     ${t.desc?`<div class="tot"><span class="muted">Desconto</span><span>- ${money(t.desc)}</span></div>`:''}${t.acr?`<div class="tot"><span class="muted">Acréscimo</span><span>${money(t.acr)}</span></div>`:''}${t.frete?`<div class="tot"><span class="muted">Frete</span><span>${money(t.frete)}</span></div>`:''}${t.imp?`<div class="tot"><span class="muted">${esc(d.impostoNome||'Impostos')} (${fnum(d.imposto,num(d.imposto)%1?2:0)}%)</span><span>${money(t.imp)}</span></div>`:''}<div class="tot big"><span>Total</span><span>${money(t.total)}</span></div>`;
   const refreshTot=()=>{const x=$('#fTot',body);if(x)x.innerHTML=totHtml(totals(d));const cr=$('#fCron',body);if(cr)cr.innerHTML=cronHtml(cronograma(d,totals(d).total))};
   const collect=()=>{const v=id=>{const e=$('#'+id,body);return e?e.value:undefined};
-    if(v('fData')!==undefined)d.data=v('fData');if(v('fVal')!==undefined)d.validade=v('fVal');if(v('fSt')!==undefined)d.status=v('fSt');
+    if(v('fData')!==undefined)d.data=v('fData');if(v('fSaida')!==undefined)d.saida=v('fSaida');if(v('fGarM')!==undefined)d.garMeses=Math.max(1,Math.min(120,Math.round(num(v('fGarM')))||12));if(v('fVal')!==undefined)d.validade=v('fVal');if(v('fSt')!==undefined)d.status=v('fSt');
     ['fEq:equipamento','fDef:defeito','fLaudo:laudo','fRef:referente','fForma:forma','fTxt:texto','fPag:pagamento','fPrazo:prazo','fGar:garantia','fObs:obs','fTer:termos','fMod:modelo','fCapa:capa','fQr:qr','fVenc:venc1'].forEach(p=>{const[a,b]=p.split(':');const x=v(a);if(x!==undefined)d[b]=x});
     if(v('fValor')!==undefined)d.valor=num(v('fValor'));if(v('fAcr')!==undefined)d.acrescimo=num(v('fAcr'));if(v('fImp')!==undefined)d.imposto=Math.max(0,num(v('fImp')));
     if(v('fEnt')!==undefined)d.entrada=Math.min(100,Math.max(0,num(v('fEnt'))));if(v('fParc')!==undefined)d.parcelas=Math.max(1,Math.min(60,Math.round(num(v('fParc')))||1));
@@ -626,6 +646,7 @@ function editDoc(d0,isNew=false){
     const ff=$('#fFormas',body);if(ff)ff.onclick=()=>{collect();listaPag('formas',P(),d.formas,n=>{d.formas=n;render()})};
     const fc=$('#fConds',body);if(fc)fc.onclick=()=>{collect();listaPag('conds',P(),d.conds,n=>{d.conds=n;render()})};
     const fv=$('#fValor',body);if(fv)fv.oninput=()=>{$('#fExt',body).textContent=extenso(num(fv.value))};
+    ['fSaida','fGarM'].forEach(id=>{const e=$('#'+id,body);if(e)e.oninput=e.onchange=()=>{collect();const g=$('#fGarFim',body);if(g)g.textContent=garTxt(d)}});
     const pv=$('#fPrev',body);if(pv)pv.onclick=()=>{collect();pdfAcao(Object.assign({},d,{num:d.num||P().seq[tipo],itens:d.itens.filter(i=>i.nome.trim())}),'preview')};
     $('#fFoto',body).onchange=async e=>{collect();for(const f of e.target.files){d.fotos.push(await resizeImg(f,1280,.72))}render()};
     $$('[data-delfoto]',body).forEach(b=>b.onclick=()=>{collect();d.fotos.splice(+b.dataset.delfoto,1);render()});
@@ -650,12 +671,12 @@ function verDoc(id){
   const el=sheet(T.n+' '+docNum(d),'',{actions:`<button class="icon" id="vEdit" aria-label="Editar">${ic('pen')}</button>`});
   const body=$('.body',el);
   const lines=(d.itens||[]).map(it=>`<div class="row" style="padding:8px 0;border-bottom:1px solid var(--line)"><div class="grow"><div style="font-weight:600">${esc(it.nome)}</div><div class="muted tab" style="font-size:13px">${fnum(it.qtd,num(it.qtd)%1?2:0)} ${esc(it.un)} × ${money(it.preco)}${it.tipo==='s'?' · serviço':''}</div></div><b class="tab">${money(itTot(it))}</b></div>`).join('');
-  const conv=d.tipo==='ORC'?[['OS','Gerar ordem de serviço'],['PED','Gerar pedido'],['CTR','Gerar contrato'],['REC','Gerar recibo']]:d.tipo==='OS'||d.tipo==='PED'?[['REC','Gerar recibo'],['CTR','Gerar contrato']]:[];
+  const conv=d.tipo==='ORC'?[['OS','Gerar ordem de serviço'],['PED','Gerar pedido'],['CTR','Gerar contrato'],['REC','Gerar recibo'],['GAR','Gerar certificado de garantia']]:d.tipo==='OS'||d.tipo==='PED'?[['REC','Gerar recibo'],['CTR','Gerar contrato'],['GAR','Gerar certificado de garantia']]:[];
   body.innerHTML=`<div class="stack">
     <div class="card stack"><div class="row"><span class="st ${ST_STYLE[d.status]||'s-out'}">${esc(d.status)}</span><span class="grow"></span><span class="muted">${fdate(d.data)}</span></div>
       <div><div class="eyebrow">Cliente</div><div style="font-weight:700;font-size:17px">${esc(c?c.nome:'Sem cliente')}</div>${c&&c.tel?`<div class="muted">${esc(c.tel)}</div>`:''}</div>
-      <div style="font-family:var(--f-display);font-size:30px;font-weight:800;letter-spacing:-.02em" class="tab">${money(t.total)}</div>
-      ${d.tipo==='REC'?`<div class="muted">${esc(extenso(t.total))}</div>`:''}</div>
+      <div style="font-family:var(--f-display);font-size:30px;font-weight:800;letter-spacing:-.02em" class="tab">${d.tipo==='GAR'?garPrazo(num(d.garMeses)||12):money(t.total)}</div>
+      ${d.tipo==='GAR'?`<div class="muted">${esc(garTxt(d))}</div>`:''}${d.tipo==='REC'?`<div class="muted">${esc(extenso(t.total))}</div>`:''}</div>
     <div class="g2"><button class="btn" id="vShare">${ic('share')}Enviar PDF</button><button class="btn ghost" id="vWa">${ic('wa')}WhatsApp</button><button class="btn ghost" id="vPrev">${ic('eye')}Ver PDF</button><button class="btn ghost" id="vDl">${ic('dl')}Baixar PDF</button></div>
     ${T.st.length>1?`<div class="card stack"><span class="eyebrow">Mudar situação</span><div class="chips">${T.st.map(s=>`<button class="chip ${s===d.status?'on':''}" data-setst="${esc(s)}">${esc(s)}</button>`).join('')}</div></div>`:''}
     ${lines?`<div class="card">${lines}<div style="margin-top:8px">${t.desc?`<div class="tot"><span class="muted">Desconto</span><span>- ${money(t.desc)}</span></div>`:''}${t.acr?`<div class="tot"><span class="muted">Acréscimo</span><span>${money(t.acr)}</span></div>`:''}${t.frete?`<div class="tot"><span class="muted">Frete</span><span>${money(t.frete)}</span></div>`:''}${t.imp?`<div class="tot"><span class="muted">${esc(d.impostoNome||'Impostos')}</span><span>${money(t.imp)}</span></div>`:''}</div></div>`:''}
@@ -665,12 +686,13 @@ function verDoc(id){
   </div>`;
   $('#vEdit',el).onclick=()=>{topSheetClose();editDoc(d)};
   $('#vShare',body).onclick=()=>pdfAcao(d,'share');$('#vPrev',body).onclick=()=>pdfAcao(d,'preview');$('#vDl',body).onclick=()=>pdfAcao(d,'download');
-  $('#vWa',body).onclick=()=>{const fone=onlyDigits(c&&c.tel);const msg=`Olá${c?' '+c.nome.split(' ')[0]:''}! Segue ${T.n.toLowerCase()} nº ${docNum(d)} de ${perfilDe(d).nome||'nossa empresa'}, no valor de ${money(t.total)}.${d.tipo==='ORC'&&d.validade?' Válido até '+fdate(d.validade)+'.':''} O PDF vai em seguida.`;
+  $('#vWa',body).onclick=()=>{const fone=onlyDigits(c&&c.tel);const msg=d.tipo==='GAR'?`Olá${c?' '+c.nome.split(' ')[0]:''}! Segue o certificado de garantia nº ${docNum(d)} de ${perfilDe(d).nome||'nossa empresa'}. ${garTxt(d)} Guarde este arquivo.`:`Olá${c?' '+c.nome.split(' ')[0]:''}! Segue ${T.n.toLowerCase()} nº ${docNum(d)} de ${perfilDe(d).nome||'nossa empresa'}, no valor de ${money(t.total)}.${d.tipo==='ORC'&&d.validade?' Válido até '+fdate(d.validade)+'.':''} O PDF vai em seguida.`;
     window.open(`https://wa.me/${fone?(fone.length<=11?'55'+fone:fone):''}?text=${encodeURIComponent(msg)}`,'_blank');if(d.tipo==='ORC'&&d.status==='Rascunho'){d.status='Enviado';save()}};
   $$('[data-setst]',body).forEach(b=>b.onclick=()=>{d.status=b.dataset.setst;save();topSheetClose();verDoc(d.id);go(view)});
   $$('[data-conv]',body).forEach(b=>b.onclick=()=>{const k=b.dataset.conv;topSheetClose();
     const base={perfilId:d.perfilId,clienteId:d.clienteId,itens:JSON.parse(JSON.stringify(d.itens||[])),desconto:d.desconto,descTipo:d.descTipo,acrescimo:d.acrescimo,pagamento:d.pagamento,prazo:d.prazo,garantia:d.garantia,obs:d.obs,origemId:d.id,fotos:[]};
     if(k==='REC'){base.valor=t.total;base.referente=`${T.n} nº ${docNum(d)}`+((d.itens||[]).length?': '+(d.itens||[]).slice(0,4).map(i=>i.nome).join(', '):'');base.itens=[]}
+    if(k==='GAR'){base.itens=[];base.referente=(d.itens||[]).slice(0,8).map(i=>i.nome).filter(Boolean).join('; ');base.saida=today()}
     novoDoc(k,base)});
   const vf=$('#vFin',body);if(vf)vf.onclick=()=>{editFin({tipo:'E',desc:`${T.n} ${docNum(d)}${c?' – '+c.nome:''}`,valor:t.total,data:addDays(today(),7),pago:false,cat:'Serviços',clienteId:d.clienteId,docId:d.id})};
   const va=$('#vAg',body);if(va)va.onclick=()=>editEvento({titulo:'Execução – '+(c?c.nome:T.n+' '+docNum(d)),clienteId:d.clienteId,local:c?c.end:'',docId:d.id,data:addDays(today(),1),hora:'08:00'});
@@ -746,7 +768,7 @@ function qrModulos(texto){try{if(typeof qrcode!=='function')return null;const q=
 function pixCidadeDe(p){return p.pixCidade||String(p.cidade||'').split(/[\/,-]/)[0].trim()||'BRASIL'}
 /* valor que o QR cobra: entrada, 1ª parcela ou o total */
 function pixInfo(d,p,total,cr){
-  if(!String(p.pix||'').trim()||d.tipo==='REC'||d.tipo==='CTR')return null;
+  if(!String(p.pix||'').trim()||d.tipo==='REC'||d.tipo==='CTR'||d.tipo==='GAR')return null;
   let valor=total,rot='valor total';if(cr.length){valor=cr[0].v;rot=cr[0].l.startsWith('Entrada')?'entrada':cr.length>1?'1ª parcela':'saldo'}
   return{chave:String(p.pix).trim(),valor,rot,payload:pixPayload(p.pix,p.pixNome||p.razao||p.nome,pixCidadeDe(p),valor)}}
 
@@ -774,7 +796,8 @@ async function montaPdf(d,p){
   const logoDims=async(maxW,maxH)=>{if(!LOGO)return null;await trimLogo();const[w,h]=await imgSize(LOGO);const s=Math.min(maxW/w,maxH/h);return{w:w*s,h:h*s}};
   const logoImg=(x,y,dm)=>pdf.addImage(LOGO,imgFmt(LOGO),x,y,dm.w,dm.h);
   const titulo=T.n;const numTxt='Nº '+docNum(d);
-  const meta=[numTxt,'Data: '+fdate(d.data)];
+  const meta=[numTxt,(d.tipo==='GAR'?'Emissão: ':'Data: ')+fdate(d.data)];
+  if(d.tipo==='GAR')meta.push('Válido até: '+fdate(garFim(d)));
   if(d.tipo==='ORC'&&d.validade)meta.push('Validade: '+Math.max(0,Math.round((new Date(d.validade+'T12:00:00')-new Date(d.data+'T12:00:00'))/864e5))+' dias');
   if((d.tipo==='OS'||d.tipo==='PED')&&d.validade)meta.push('Previsão: '+fdate(d.validade));
   const metaTxt=meta.join('  ·  ');
@@ -839,8 +862,8 @@ async function montaPdf(d,p){
   /* ---------- capa ---------- */
   const fazCapa=async()=>{
     const cl=c.nome||'—';const sub=[c.doc?'CPF/CNPJ: '+c.doc:'',c.end,[c.tel,c.email].filter(Boolean).join('  ·  ')].filter(Boolean);
-    const kicker=d.tipo==='ORC'?'PROPOSTA COMERCIAL':d.tipo==='OS'?'ORDEM DE SERVIÇO':d.tipo==='PED'?'PEDIDO DE VENDA':'CONTRATO DE SERVIÇOS';
-    const tit=T.n;const info=[['Documento',numTxt.replace('Nº ','Nº ')],['Data',fdate(d.data)]];if(d.tipo==='ORC'&&d.validade)info.push(['Validade',fdate(d.validade)]);
+    const kicker=d.tipo==='GAR'?'CERTIFICADO DE':d.tipo==='ORC'?'PROPOSTA COMERCIAL':d.tipo==='OS'?'ORDEM DE SERVIÇO':d.tipo==='PED'?'PEDIDO DE VENDA':'CONTRATO DE SERVIÇOS';
+    const tit=d.tipo==='GAR'?'Garantia':T.n;const info=[['Documento',numTxt],[d.tipo==='GAR'?'Emissão':'Data',fdate(d.data)]];if(d.tipo==='GAR')info.push(['Válido até',fdate(garFim(d))]);if(d.tipo==='ORC'&&d.validade)info.push(['Validade',fdate(d.validade)]);
     const LGc=await logoDims(mod==='bold'?84:96,mod==='bold'?52:60,true);
     const cx=W/2,clr=mod==='bold'?accT:INK,sec=mod==='bold'?clareia(acc,0):GRAY;
     if(mod==='exec'){fill(acc,0,0,58,2.2);fill(dk,58,0,W-58,2.2)}
@@ -944,13 +967,31 @@ async function montaPdf(d,p){
     await sigBox(M,d.assinEmpresa?p.assin:'',p.razao||p.nome,(d.tipo==='CTR'?'CONTRATADA':d.tipo==='REC'?'Emitente':(p.resp||'Responsável')));
     await sigBox(M+half+16,d.assinCliente,c.nome,d.tipo==='CTR'?'CONTRATANTE':d.tipo==='REC'?'Cliente':'Aceite do cliente');y=sy+16;
     if(p.rodape&&d.tipo!=='CTR'){tx(p.rodape,W/2,y,{s:7.8,a:'center',c:GRAY});y+=6}};
-  const termos=()=>{const tt=d.termos!=null?d.termos:p.termos;if(!String(tt||'').trim()||d.tipo==='REC'||d.tipo==='CTR')return;need(26);secTitulo('Garantia e condições');
+  const termos=()=>{const tt=d.termos!=null?d.termos:p.termos;if(!String(tt||'').trim()||d.tipo==='REC'||d.tipo==='CTR')return;need(26);secTitulo(d.tipo==='GAR'?'Condições da garantia':'Garantia e condições');
     String(tt).split('\n').forEach(par=>{if(!par.trim()){y+=1.6;return}wrap(par,CW,sz.body-.2).forEach(l=>{need(4.4);tx(l,M,y,{s:sz.body-.2,c:[55,55,53]});y+=compact?3.8:4.15});y+=1.6})};
+
+  /* ---------- certificado de garantia ---------- */
+  const certificado=()=>{
+    const m=Math.max(1,num(d.garMeses)||12),ini=d.saida||d.data,fim=garFim(d);
+    const intro=`Certificamos que o serviço ou produto descrito abaixo, fornecido por ${nome} ${c.nome?'a '+c.nome:'ao cliente'}, possui garantia de ${garPrazo(m)}, contada a partir de ${fdate(ini)} e válida até ${fdate(fim)}, nos termos das condições deste certificado.`;
+    const iL=wrap(intro,CW,10.4);need(iL.length*5+52);iL.forEach(L=>{tx(L,M,y+3,{s:10.4,c:[50,50,48]});y+=5.2});y+=5;
+    const bh=30,cx=W/2;
+    if(mod==='exec'){fill(clareia(acc,.93),M,y,CW,bh);fill(acc,M,y,1.2,bh)}
+    else if(mod==='classic'){hline(M,y,W-M,dk,.4);hline(M,y+bh,W-M,dk,.4)}
+    else if(mod==='min'){pdf.setDrawColor(190,190,186);pdf.setLineWidth(.3);pdf.rect(M,y,CW,bh)}
+    else{fill(dk,M,y,CW,bh,3);fill(acc,M,y,CW,2.4,1.2)}
+    const cT=mod==='bold'?dkT:INK,cL=mod==='bold'?acc:GRAY,cN=mod==='bold'?dkT:(mod==='exec'?acc:dk);
+    tx('PRAZO DE GARANTIA',cx,y+8.4,{b:1,s:7.2,a:'center',c:cL,cs:.5});tx(garPrazo(m),cx,y+19.6,{b:1,s:25,a:'center',c:cN});
+    tx(`Válida de ${fdate(ini)} até ${fdate(fim)}`,cx,y+26.2,{s:9,a:'center',c:mod==='bold'?clareia(dk,.6):GRAY});y+=bh+9;
+    const cells=[['Emissão do certificado',fdate(d.data)],['Saída / entrega',fdate(ini)],['Início da garantia',fdate(ini)],['Término da garantia',fdate(fim)]];
+    const cw4=CW/4;need(14);cells.forEach(([k,v],i)=>{const x=M+i*cw4;lab(k,x,y+2);tx(v,x,y+8,{b:1,s:10.2})});y+=15;
+    paragrafo('Objeto da garantia',d.referente||'-');paragrafo('Local / equipamento',d.equipamento);paragrafo('Observações',d.obs);
+  };
 
   /* ---------- montagem ---------- */
   if(capa){await fazCapa();pdf.addPage()}
   cabecalho(true);
-  if(mod==='bold'&&d.tipo!=='REC'&&d.tipo!=='CTR'&&d.tipo!=='OS'){ // faixa de destaque do total logo abaixo do cabeçalho
+  if(mod==='bold'&&d.tipo!=='REC'&&d.tipo!=='CTR'&&d.tipo!=='OS'&&d.tipo!=='GAR'){ // faixa de destaque do total logo abaixo do cabeçalho
     fill(clareia(acc,.92),M,y-1,CW,15,2.4);tx('VALOR TOTAL',M+5,y+4.6,{b:1,s:7,c:GRAY,cs:.4});tx(money(t.total),M+5,y+11.4,{b:1,s:17,c:INK});
     tx(c.nome?'Para: '+c.nome:'',W-M-5,y+11,{s:9,a:'right',c:GRAY});y+=19}
   partes();
@@ -962,7 +1003,8 @@ async function montaPdf(d,p){
     const dt=new Date(d.data+'T12:00:00');tx(`${p.cidade?p.cidade+', ':''}${dt.getDate()} de ${MESES[dt.getMonth()]} de ${dt.getFullYear()}.`,M,y,{s:10.5});y+=6}
   if(d.tipo==='CTR'){const body=fillTpl(d.texto||p.contrato,d);
     body.split('\n').forEach((par,pi)=>{const first=pi===0;const ls=wrap(par||' ',CW,first?12:10,first||/^\d+\.\s[A-ZÇÃÕÁÉ]/.test(par));ls.forEach((L,k)=>{need(5.2);tx(L,first?W/2:M,y,{s:first?12:10,b:first||(/^\d+\.\s[A-ZÇÃÕÁÉ]/.test(par)&&k===0),a:first?'center':undefined});y+=first?7:5})});y+=4}
-  if(d.tipo!=='REC'&&d.tipo!=='CTR'){
+  if(d.tipo==='GAR')certificado();
+  if(d.tipo!=='REC'&&d.tipo!=='CTR'&&d.tipo!=='GAR'){
     const its=d.itens||[];
     if(p.separar){tabela('Produtos',its.filter(i=>i.tipo!=='s'),its.some(i=>i.tipo!=='s')&&its.some(i=>i.tipo==='s')?t.prod:null);tabela('Serviços',its.filter(i=>i.tipo==='s'),its.some(i=>i.tipo!=='s')&&its.some(i=>i.tipo==='s')?t.serv:null)}else tabela('Itens',its,null);
     totais();pagamento();garantiaObs();
@@ -1096,7 +1138,7 @@ function vMais(m){
     <button class="li" id="mInst">${ic('install')}<div class="grow"><div class="t">Instalar no celular</div><div class="s">Android e iPhone</div></div></button>
   </div>
   
-  <p class="muted" style="font-size:12px;text-align:center;margin-top:18px">Orçamento · versão 19 · seus dados ficam salvos neste aparelho${Cloud.user?' e na nuvem':''}</p>`;
+  <p class="muted" style="font-size:12px;text-align:center;margin-top:18px">Orçamento · versão 20 · seus dados ficam salvos neste aparelho${Cloud.user?' e na nuvem':''}</p>`;
   $$('[data-go]',m).forEach(b=>b.onclick=()=>go(b.dataset.go));
   $('#mEmp',m).onclick=()=>editEmpresa();$('#mConta',m).onclick=()=>contaSheet();const ma=$('#mAtv',m);if(ma)ma.onclick=()=>ativarSheet();const md=$('#mAdm',m);if(md){md.onclick=()=>adminSheet();contarAguardando()}$('#mBk',m).onclick=()=>backupSheet();$('#mInst',m).onclick=()=>installSheet();$('#mRel',m).onclick=()=>relatorios();
   $('#mTema',m).onclick=()=>{const o=['auto','light','dark'];const n=o[(o.indexOf(prefs.get('tema','auto'))+1)%3];prefs.set('tema',n);applyTema();vMais(m)};
@@ -1226,11 +1268,12 @@ function relatorios(){
 /* empresas (perfis) */
 const PALETAS=[['#F22B0C','#262626','ESM'],['#0B5FFF','#0B1F44','Azul'],['#0F9D58','#12372A','Verde'],['#F59E0B','#2B2113','Âmbar'],['#7C3AED','#2A1B4D','Violeta'],['#E11D74','#3A1226','Rosa'],['#0891B2','#0E2F3A','Turquesa'],['#151515','#262626','Grafite']];
 function editEmpresa(){
-  const el=sheet('Minhas empresas',`<div class="stack" id="pfL"></div>`,{actions:`<button class="icon" id="pfAdd" aria-label="Nova empresa">${ic('plus')}</button>`});
+  const el=sheet('Minhas empresas',`<div class="stack"><button class="btn block" id="pfGar">${ic('doc')}Emitir certificado de garantia</button><div class="stack" id="pfL"></div></div>`,{actions:`<button class="icon" id="pfAdd" aria-label="Nova empresa">${ic('plus')}</button>`});
   const draw=()=>{$('#pfL',el).innerHTML=`<div class="note">${ic('info')}<span>Cada empresa tem seu logo, cores, modelo de PDF, garantia, Pix e numeração. A marcada é usada nos novos documentos.</span></div>
     <div class="list">${S.perfis.map(p=>`<div class="li" data-pf="${p.id}"><span class="avatar" style="background:${esc(p.cor)};color:${onHex(p.cor)}">${p.logo?`<img src="${p.logo}" alt="" style="object-fit:contain;background:#fff">`:initials(p.nome||'?')}</span><div class="grow"><div class="t">${esc(p.nome||'Sem nome')}</div><div class="s">${MODELOS[p.modelo]?.n||'Executivo'}${p.capa?' · com capa':''}${p.id===S.perfilId?' · em uso':''}</div></div>${p.id===S.perfilId?'':`<button class="btn sm ghost" data-use="${p.id}">Usar</button>`}<button class="icon" data-ed="${p.id}" aria-label="Editar">${ic('pen')}</button></div>`).join('')}</div>`;
     $$('[data-ed]',el).forEach(b=>b.onclick=()=>editPerfil(b.dataset.ed));$$('[data-use]',el).forEach(b=>b.onclick=()=>{S.perfilId=b.dataset.use;save();draw();go(view)});
     $$('[data-pf]',el).forEach(r=>r.onclick=e=>{if(e.target.closest('button'))return;editPerfil(r.dataset.pf)})};
+  $('#pfGar',el).onclick=()=>{topSheetClose();novoDoc('GAR')};
   $('#pfAdd',el).onclick=()=>{const p=perfilBlank();p.nome='Nova empresa';S.perfis.push(p);save();editPerfil(p.id)};
   draw();return el}
 const onHex=h=>{const c=hexRgb(h);return(0.299*c[0]+0.587*c[1]+0.114*c[2])/255>0.62?'#191919':'#fff'};
@@ -1264,6 +1307,11 @@ function editPerfil(id){
       <label class="f">Garantia (resumo)<textarea id="e_garantia">${esc(e.garantia)}</textarea></label>
       <label class="f">Termos e condições (página final "Garantia e condições")<textarea id="e_termos" style="min-height:140px">${esc(e.termos)}</textarea></label>
       <label class="f">Observações padrão<textarea id="e_obs">${esc(e.obs)}</textarea></label><label class="f">Mensagem final<input id="e_rodape" value="${esc(e.rodape)}"></label></div>
+    <div class="card stack"><span class="eyebrow">Certificado de garantia</span>
+      <div class="muted" style="font-size:13px">Documento próprio para o cliente, com prazo, datas e condições. Emita pela tela Empresas ou em + Criar.</div>
+      <label class="f">Prazo padrão (meses)<input id="e_garMeses" inputmode="numeric" value="${esc(e.garMeses)}"></label>
+      <label class="f">Condições padrão do certificado<textarea id="e_garTermos" style="min-height:170px;font-size:13px">${esc(e.garTermos)}</textarea></label>
+      <button type="button" class="btn sm ghost" id="eGarRes">Restaurar texto original</button></div>
     <div class="card stack"><span class="eyebrow">Pagamento padrão</span>
       <div class="row"><button type="button" class="btn ghost grow" id="eFormas">Formas de pagamento</button><button type="button" class="btn ghost grow" id="eConds">Condições</button></div>
       <label class="f">Texto livre de pagamento<textarea id="e_condicoes">${esc(e.condicoes)}</textarea></label></div>
@@ -1275,13 +1323,14 @@ function editPerfil(id){
     <button class="btn block" type="submit">${ic('check')}Salvar empresa</button>
     ${S.perfis.length>1?`<button type="button" class="btn danger block" id="eDel">${ic('trash')}Excluir esta empresa</button>`:''}</form>`);
   const g=k=>$('#e_'+k,el);
-  const coleta=()=>{['nome','razao','doc','tel','email','end','cidade','resp','site','insta','pix','pixNome','pixCidade','moeda','prefixo','cor','cor2','condicoes','garantia','termos','obs','rodape','contrato'].forEach(k=>e[k]=g(k).value.trim?g(k).value.trim():g(k).value);
-    e.contrato=g('contrato').value;e.validade=num(g('validade').value)||15;['capa','separar','fotosPdf','qrPix'].forEach(k=>e[k]=g(k).checked);
+  const coleta=()=>{['nome','razao','doc','tel','email','end','cidade','resp','site','insta','pix','pixNome','pixCidade','moeda','prefixo','cor','cor2','condicoes','garantia','termos','garTermos','obs','rodape','contrato'].forEach(k=>e[k]=g(k).value.trim?g(k).value.trim():g(k).value);
+    e.contrato=g('contrato').value;e.garTermos=g('garTermos').value;e.garMeses=Math.max(1,Math.min(120,Math.round(num(g('garMeses').value))||12));e.validade=num(g('validade').value)||15;['capa','separar','fotosPdf','qrPix'].forEach(k=>e[k]=g(k).checked);
     const m=$('[name=e_modelo]:checked',el);if(m)e.modelo=m.value;$$('[data-seq]',el).forEach(i=>{const v=parseInt(i.value);if(v>0)e.seq[i.dataset.seq]=v})};
   $$('.pal',el).forEach(b=>b.onclick=()=>{g('cor').value=b.dataset.a;g('cor2').value=b.dataset.b});
   $('#eLogo',el).onchange=ev=>{const f=ev.target.files[0];if(!f)return;const fr=new FileReader();fr.onload=()=>{const im=new Image();im.onload=()=>{const s=Math.min(1,600/Math.max(im.width,im.height));const c=document.createElement('canvas');c.width=Math.round(im.width*s);c.height=Math.round(im.height*s);const x=c.getContext('2d');const png=/png|svg|gif|webp/.test(f.type);if(!png){x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height)}x.drawImage(im,0,0,c.width,c.height);e.logo=png?c.toDataURL('image/png'):c.toDataURL('image/jpeg',.9);$('#eLogoV',el).innerHTML=`<img src="${e.logo}" alt="Logo" style="object-fit:contain">`;$('#eLogoX',el).hidden=false};im.src=fr.result};fr.readAsDataURL(f)};
   $('#eLogoX',el).onclick=ev=>{e.logo='';$('#eLogoV',el).innerHTML=ic('cam');ev.target.hidden=true};
   $('#eSig',el).onclick=()=>assinar('Sua assinatura',src=>{coleta();e.assin=src;save();topSheetClose();editPerfil(id)});
+  $('#eGarRes',el).onclick=()=>{g('garTermos').value=GAR_TERMOS};
   $('#eCtrRes',el).onclick=()=>{g('contrato').value=CONTRATO_PADRAO};
   $('#eFormas',el).onclick=()=>listaPag('formas',e,[],()=>{toast('Padrão salvo')},{padrao:true});
   $('#eConds',el).onclick=()=>listaPag('conds',e,[],()=>{toast('Padrão salvo')},{padrao:true});
