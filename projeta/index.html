@@ -652,7 +652,7 @@ const uid=()=>Math.random().toString(36).slice(2,9);
 const today=()=>{const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10)};
 const fmtDate=d=>{if(!d)return"";const[y,m,dd]=d.split("-");return`${dd}/${m}/${y}`};
 let toastT;function toast(m){let t=$(".toast");if(!t){t=document.createElement("div");t.className="toast";document.body.appendChild(t)}t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2600)}
-const APP_VER="2.8.0";
+const APP_VER="2.9.0";
 function remoteVer(){const base=location.protocol==="https:"?location.origin+location.pathname.replace(/[^/]*$/,""):"https://elysoon.github.io/orcamento-app/projeta/";
  return fetch(base+"versao.json?nc="+Date.now(),{cache:"no-store"}).then(r=>r.ok?r.json():null).then(j=>j&&j.v||"").catch(()=>"")}
 /* versão do GitHub: se a publicada for mais nova que a aberta, recarrega uma vez sem cache */
@@ -1012,8 +1012,8 @@ const DEVLIB=[
  {id:"sub",seg:"som",n:"Subwoofer",code:"SW",p:690,wired:1},
  {id:"vol",seg:"som",n:"Controle de volume por ambiente",code:"VL",p:110,wired:1}
 ];
-const devOf=d=>DEVLIB.find(x=>x.id===d.t)||(DB.customDevs||[]).find(x=>x.id===d.t)||{n:"Equipamento",code:"EQ",p:0};
-const devLibSeg=k=>[...DEVLIB.filter(x=>x.seg===k),...(DB.customDevs||[]).filter(x=>x.seg===k)];
+const devOf=d=>devFull(d);
+const devLibSeg=k=>[...DEVLIB.filter(x=>x.seg===k),...(DB.customDevs||[]).filter(x=>x.seg===k),...((DB.col&&DB.col.devcfg)||[]).filter(x=>x.custom&&x.seg===k)].map(x=>devFull(x.id));
 
 /* Serviços (segmentos). Cada um tem campos, cálculo de materiais, verificações de norma, normas e checklist. */
 const SEG={
@@ -1022,8 +1022,8 @@ const SEG={
   hub:{n:"Central de alarme",code:"CI"},cable:{d:"Cabo blindado 2 × 1,5 mm² (laço de detecção e sirenes)",p:4.2},
   intro:"Apresentamos o sistema de detecção e alarme de incêndio (SDAI) do local, com detectores, acionadores manuais, sirenes, iluminação de emergência e sinalização de saída, dimensionados conforme a ABNT NBR 17240 e as instruções técnicas do Corpo de Bombeiros.",
   fields:[{k:"tipo",l:"Tipo de central",t:"s",opt:["Convencional","Endereçável"],def:"Convencional"},{k:"area",l:"Área a proteger (m²)",t:"n",auto:X=>X.area},{k:"pd",l:"Pé-direito (m)",t:"n",def:3},{k:"pav",l:"Pavimentos",t:"n",def:1},
-   {k:"ndf",l:"Detectores de fumaça",t:"n",auto:X=>X.cnt("df")||Math.ceil((X.v.area||0)/81)},{k:"ndt",l:"Detectores de temperatura (cozinha, garagem)",t:"n",auto:X=>X.cnt("dt")},{k:"nam",l:"Acionadores manuais",t:"n",auto:X=>X.cnt("am")||Math.max(X.v.pav||1,Math.ceil((X.v.area||0)/900))},{k:"nsv",l:"Sirenes audiovisuais",t:"n",auto:X=>X.cnt("sav")||Math.max(X.v.pav||1,Math.ceil((X.v.area||0)/400))},
-   {k:"nle",l:"Luminárias de emergência",t:"n",auto:X=>X.cnt("lem")||Math.ceil((X.v.area||0)/40)},{k:"nps",l:"Placas de saída",t:"n",auto:X=>X.cnt("pls")||Math.max(2,Math.ceil((X.v.area||0)/150))},{k:"cab",l:"Cabo do laço (m)",t:"n",auto:X=>X.cab||Math.ceil(((X.v.ndf||0)+(X.v.ndt||0)+(X.v.nam||0)+(X.v.nsv||0))*12)},{k:"art",l:"Incluir projeto e ART",t:"b",def:true}],
+   {k:"ndf",l:"Detectores de fumaça",t:"n",auto:X=>X.cnt("df")||Math.ceil((X.v.area||0)/81)},{k:"ndt",l:"Detectores de temperatura (cozinha, garagem)",t:"n",auto:X=>X.cnt("dt")},{k:"nam",l:"Acionadores manuais",t:"n",auto:X=>Math.max(X.cnt("am"),X.v.pav||1)},{k:"nsv",l:"Sirenes audiovisuais",t:"n",auto:X=>Math.max(X.cnt("sav"),X.v.pav||1)},
+   {k:"nle",l:"Luminárias de emergência",t:"n",auto:X=>X.cnt("lem")},{k:"nps",l:"Placas de saída",t:"n",auto:X=>X.cnt("pls")},{k:"cab",l:"Cabo do laço (m)",t:"n",auto:X=>X.cab},{k:"art",l:"Incluir projeto e ART",t:"b",def:true}],
   calc(v,X,add,P){const pts=v.ndf+v.ndt+v.nam+v.nsv,end=v.tipo==="Endereçável",laco=end?Math.max(1,Math.ceil(pts/125)):Math.max(1,Math.ceil(pts/20)),cs=[4,8,12,24].find(x=>x>=laco)||24;
    add("cent","Equipamentos",end?`Central de alarme de incêndio endereçável ${laco} laço(s)`:`Central de alarme de incêndio convencional ${cs} laços`,1,"un",P("cent",end?2900+laco*900:[0,0,0,0,690][0]||(cs<=4?690:cs<=8?1150:cs<=12?1650:2600)));
    add("bat","Equipamentos","Bateria selada 12 V 7 Ah (autonomia da central)",2,"un",P("bat",95));
@@ -1159,8 +1159,8 @@ const SEG={
  wifi:{n:"Wi-Fi Empresarial",short:"Wi-Fi empresarial",ico:"wifi-empresarial",kick:"Redes sem fio corporativas",
   hub:{n:"Switch PoE / rack",code:"SW"},cable:{d:"Cabo UTP Cat6 (até os access points)",p:3.2},
   intro:"Apresentamos o projeto de rede Wi-Fi corporativa, com access points distribuídos pela área, alimentação PoE, redes separadas para equipe e visitantes e gerenciamento centralizado.",
-  fields:[{k:"area",l:"Área a cobrir (m²)",t:"n",auto:X=>X.area||300},{k:"amb",l:"Ambiente",t:"s",opt:["Escritório","Loja","Galpão","Hotel/Clínica","Área externa"],def:"Escritório"},{k:"usu",l:"Usuários simultâneos",t:"n",def:40},{k:"naps",l:"Access points",t:"n",auto:X=>X.cnt("api")+X.cnt("ape")},{k:"med",l:"Cabo médio por AP (m)",t:"n",auto:X=>X.avgCab||25},{k:"visit",l:"Rede de visitantes com portal",t:"b",def:true},{k:"surv",l:"Incluir site survey e mapa de calor",t:"b",def:true}],
-  calc(v,X,add,P){const fa={"Escritório":120,"Loja":150,"Galpão":300,"Hotel/Clínica":80,"Área externa":800}[v.amb]||120,req=Math.max(1,Math.ceil(v.area/fa),Math.ceil(v.usu/30)),n=Math.max(v.naps||0,req),ext=X.cnt("ape"),int=Math.max(0,n-ext),sp=[8,16,24].find(x=>x>=n)||24;
+  fields:[{k:"area",l:"Área a cobrir (m²)",t:"n",auto:X=>X.area||300},{k:"amb",l:"Ambiente",t:"s",opt:["Escritório","Loja","Galpão","Hotel/Clínica","Área externa"],def:"Escritório"},{k:"usu",l:"Usuários simultâneos",t:"n",def:40},{k:"aap",l:"Área por access point (m²)",t:"n",auto:X=>({"Escritório":120,"Loja":150,"Galpão":300,"Hotel/Clínica":80,"Área externa":800}[X.v.amb]||120)},{k:"uap",l:"Usuários por access point",t:"n",def:30},{k:"naps",l:"Access points",t:"n",auto:X=>X.cnt("api")+X.cnt("ape")},{k:"med",l:"Cabo médio por AP (m)",t:"n",auto:X=>X.avgCab||25},{k:"visit",l:"Rede de visitantes com portal",t:"b",def:true},{k:"surv",l:"Incluir site survey e mapa de calor",t:"b",def:true}],
+  calc(v,X,add,P){const fa=v.aap||120,req=Math.max(1,Math.ceil(v.area/fa),Math.ceil(v.usu/(v.uap||30))),n=Math.max(v.naps||0,req),ext=X.cnt("ape"),int=Math.max(0,n-ext),sp=[8,16,24].find(x=>x>=n)||24;
    add("api","Equipamentos","Access point de teto Wi-Fi 6 gerenciável",int,"un",P("api",620));
    add("ape","Equipamentos","Access point externo Wi-Fi 6",ext,"un",P("ape",980));
    add("swp","Equipamentos",`Switch PoE ${sp} portas gerenciável`,1,"un",P("swp"+sp,sp<=8?780:sp<=16?1500:2400));
@@ -1374,12 +1374,18 @@ function segBom(){
  const P=(k,def)=>def;
  const add=(key,grp,desc,qty,unit,price)=>{qty=Math.round((+qty||0)*100)/100;if(qty<=0)return;const q=S.qty[key]??qty;items.push({key,grp,desc:S.desc?.[key]||desc,qty:q,auto:qty,unit,price:S.prices[key]??(DB.segPrice&&DB.segPrice[S.seg+"_"+key])??price,base:price})};
  let R={kpi:[],chk:[]};try{R=sd.calc.call(sd,v,X,add,P)||R}catch(e){console.error(e)}
+ const raw=S.segIn||{};let EX={kpi:[],chk:[],mem:[]};
+ if(sd.genCab&&allDevs().some(d=>{const f=devFull(d);return f.wired&&(d.cabo||f.cabo)!=="nenhum"})){const ix=items.findIndex(x=>x.key===sd.genCab);if(ix>=0)items.splice(ix,1)}
+ try{EX=segExtras(add,v,raw)}catch(e){console.error(e)}
+ if(sd.genInf&&allDevs().length&&(raw.e_inf||sd.infDef||"pvc34")!=="nenhuma"){const ix=items.findIndex(x=>x.key===sd.genInf);if(ix>=0)items.splice(ix,1)}
+ {const mp={};for(let i=items.length-1;i>=0;i--){const it=items[i];if(it.extra)continue;const k=it.grp+"|"+norm(it.desc).trim()+"|"+it.unit;if(mp[k]!=null){const t=items[mp[k]];t.qty=+t.qty+(+it.qty);t.auto=(+t.auto||0)+(+it.auto||0);items.splice(i,1);Object.keys(mp).forEach(q=>{if(mp[q]>i)mp[q]--})}else mp[k]=i}}
+ items.forEach(i=>{if(!DEVLIB.find(x=>x.id===i.key))return;const f=devFull(i.key);if(!f.cat)return;const c=DB.col.catalog.find(x=>x.id===f.cat);if(!c)return;if(!(S.desc&&S.desc[i.key]))i.desc=c.nome;if(S.prices[i.key]==null)i.price=+(c.custo||c.preco)||i.price});
  S.extra.forEach(e=>items.push({key:"x_"+e.id,grp:e.grp||"Equipamentos",desc:e.desc,qty:+e.qty||0,unit:e.unit||"un",price:+e.price||0,extra:e}));
  const mk=1+S.cfg.markup/100;
  items.forEach(i=>{i.sale=i.grp==="Serviços"||i.extra?.fixed?i.price:i.price*mk;i.total=i.sale*i.qty;i.cost=i.price*i.qty});
  const mat=items.filter(i=>i.grp!=="Serviços").reduce((a,i)=>a+i.total,0),srv=items.filter(i=>i.grp==="Serviços").reduce((a,i)=>a+i.total,0),cost=items.reduce((a,i)=>a+(i.grp==="Serviços"?0:i.cost),0);
  const sub=mat+srv,disc=sub*S.cfg.discount/100,total=sub-disc;
- return{items,mat,srv,sub,disc,total,cost,margin:total-cost-srv,mHD:0,mIP:X.cab,kpi:R.kpi||[],chk:R.chk||[],v,X,solar:X.solar}
+ return{items,mat,srv,sub,disc,total,cost,margin:total-cost-srv,mHD:0,mIP:X.cab,kpi:[...(R.kpi||[]),...EX.kpi],chk:[...(R.chk||[]),...EX.chk],mem:EX.mem,v,X,solar:X.solar}
 }
 /* cartão de dimensionamento (campos + resultados + verificações) na aba Dimensionamento */
 function segFieldsHTML(B){const sd=SEGD(),raw=S.segIn||{};
@@ -1408,6 +1414,7 @@ function segDocPages(){
  const br=bomRows(B);if(br.length)blocks.push({tbl:{pre:sec(++n,vals?"Investimento":"Materiais e serviços"),head:`<table class="t"><thead><tr><th>Descrição</th><th class="c">Qtd</th><th class="c">Un</th>${vals?`<th class="r">Unitário</th><th class="r">Total</th>`:""}</tr></thead><tbody>`,rows:bomTable(br,vals).replace(/^[\s\S]*?<tbody>/,"").replace(/<\/tbody>[\s\S]*$/,"").split(/(?=<tr)/).filter(x=>x.trim())}});
  if(vals&&br.length)B2(totBox(B));
  B2(`${sec(++n,"Normas e referências")}<table class="t"><tbody>${(sd.norms||[]).map(([c,t])=>`<tr><td style="width:34%"><b>${esc(c)}</b></td><td>${esc(t)}</td></tr>`).join("")}</tbody></table>`);
+ if(T==="projeto"&&B.mem&&B.mem.length)B2(`${sec(++n,"Memória de cálculo")}${B.mem.map(t=>`<p class="txt" style="margin:0 0 6px">${esc(t)}</p>`).join("")}`);
  if(T==="projeto"){blocks.push({tbl:{pre:sec(++n,"Roteiro de execução e comissionamento"),head:`<table class="t"><thead><tr><th class="c" style="width:40px">✓</th><th>Etapa</th></tr></thead><tbody>`,rows:(sd.check||[]).map(c=>`<tr><td class="c">☐</td><td>${esc(c)}</td></tr>`)}});
   B2(`${sec(++n,"Responsabilidade técnica")}<p>Projeto elaborado a partir das informações do local e das especificações de referência dos fabricantes, observadas as normas listadas.${sd.art?" A execução deve ser acompanhada de Anotação de Responsabilidade Técnica (ART) de profissional habilitado.":""}</p>${sigs()}`)}
  else B2(`${sec(++n,"Condições comerciais")}<div class="kv"><div><small>Validade da proposta</small><b>${m.validity} dias a partir de ${fmtDate(S.date)}</b></div><div><small>Prazo de execução</small><b>${esc(m.deadline)}</b></div><div><small>Pagamento</small><b>${esc(m.payment)}</b></div><div><small>Garantia</small><b>${esc(m.warranty)}</b></div></div>${vals?`<div class="note"><b>Valor total: ${brl(B.total)}</b></div>`:""}${m.notes?`<h5>Observações</h5><div class="note">${esc(m.notes)}</div>`:""}${sec(0,"Aceite")}<p>Declaro estar de acordo com o escopo, os valores e as condições desta proposta.</p>${sigs()}`);
@@ -1458,14 +1465,16 @@ function segSideWire(el){el.querySelectorAll("[data-dv]").forEach(b=>b.onclick=(
  const n=$("#dv_new",el);if(n)n.onclick=()=>devForm()}
 function devForm(){const m=modal(sheetHead("Cadastrar equipamento")+`<div class="stack">${fld("dn_n","Nome","","Ex.: Detector de fumaça endereçável")}<div class="grid2">${fld("dn_c","Sigla (2 letras)","","Ex.: DF")}${fld("dn_p","Preço de custo (R$)","","0","number")}${fld("dn_r","Raio de cobertura (m, opcional)","","","number")}${fld("dn_a","Abertura (graus, opcional)","","","number")}</div><label class="chk"><input type="checkbox" id="dn_w" checked>Leva cabo até a central</label><div class="row" style="justify-content:flex-end"><button class="btn pri" id="dn_s">Salvar</button></div></div>`);wireClose(m);
  $("#dn_s",m).onclick=()=>{const n=$("#dn_n",m).value.trim();if(!n){toast("Informe o nome.");return}const d={id:"c"+Date.now(),seg:segKey(),n,code:($("#dn_c",m).value.trim()||n.slice(0,2)).toUpperCase().slice(0,3),p:+$("#dn_p",m).value||0,r:+$("#dn_r",m).value||0,ang:+$("#dn_a",m).value||0,wired:$("#dn_w",m).checked?1:0,custom:1};
-  DB.customDevs=DB.customDevs||[];DB.customDevs.push(d);S.cfg.defDev=d.id;cfgChanged();m.remove();sideP();toast("Equipamento cadastrado")}}
+  upsert("devcfg",Object.assign({},d,{kit:[]}));S.cfg.defDev=d.id;m.remove();sideP();toast("Equipamento cadastrado")}}
 function sideDev(el){const d=sel,L=devOf(d),lib=devLibSeg(segKey());
  el.innerHTML=`<div class="row" style="justify-content:space-between"><h3>${esc(L.code)} · ${esc(L.n)}</h3><button class="btn sm ghost" id="d_cl">Fechar</button></div>
  <div><label class="lbl" for="d_note">Local</label><input class="in-f" id="d_note" value="${esc(d.note||"")}" placeholder="Ex.: Recepção"></div>
  <div><label class="lbl" for="d_t">Equipamento</label><select class="in-f" id="d_t">${lib.map(x=>`<option value="${x.id}" ${x.id===d.t?"selected":""}>${esc(x.code)} · ${esc(x.n)}</option>`).join("")}</select></div>
  ${L.ang||L.sz?`<div><label class="lbl" for="d_rot">Direção <span id="d_rotv">${((d.rot||0)%360+360)%360}°</span></label><input type="range" id="d_rot" min="0" max="359" value="${((d.rot||0)%360+360)%360}"></div>`:""}
- ${L.wired?`<div><label class="lbl" for="d_cab">Cabo (m) — vazio = automático</label><input class="in-f" id="d_cab" type="number" min="0" value="${d.cable||""}" placeholder="${f1(devCable({...d,cable:0}))}"></div>`:""}
- <div class="row"><button class="btn" id="d_dup">Duplicar</button><button class="btn ghost" id="d_del">Excluir</button></div>`;
+ <div><label class="lbl" for="d_cb">Cabo deste ponto</label><select class="in-f" id="d_cb"><option value="">Padrão: ${esc((CABOS[L.cabo]||{n:""}).n)}</option>${Object.entries(CABOS).map(([k,x])=>`<option value="${k}" ${d.cabo===k?"selected":""}>${esc(x.n)}</option>`).join("")}</select></div>
+ ${L.wired||d.cabo?`<div><label class="lbl" for="d_cab">Cabo (m) — vazio = automático</label><input class="in-f" id="d_cab" type="number" min="0" value="${d.cable||""}" placeholder="${f1(devCable({...d,cable:0}))}"></div>`:""}
+ <div class="row"><button class="btn" id="d_cfg">Personalizar equipamento</button><button class="btn" id="d_dup">Duplicar</button><button class="btn ghost" id="d_del">Excluir</button></div>`;
+ $("#d_cb").onchange=e=>{if(e.target.value)d.cabo=e.target.value;else delete d.cabo;save();sideP();draw()};$("#d_cfg").onclick=()=>devCfgForm(d.t,()=>{sideP();draw()});
  $("#d_cl").onclick=()=>{sel=null;sideP();draw()};$("#d_note").oninput=e=>{d.note=e.target.value;save();draw()};
  $("#d_t").onchange=e=>{d.t=e.target.value;S.cfg.defDev=d.t;save();sideP();draw()};
  const r=$("#d_rot");if(r)r.oninput=()=>{d.rot=+r.value;$("#d_rotv").textContent=d.rot+"°";save();draw()};
@@ -1477,6 +1486,143 @@ function sideDev(el){const d=sel,L=devOf(d),lib=devLibSeg(segKey());
 function segPicker(cli){const m=modal(sheetHead("Qual serviço?")+`<p class="muted" style="margin:-4px 0 12px">Cada serviço tem cálculo, equipamentos, normas e checklist próprios.</p><div class="seggrid">${SEG_ORDER.map(k=>`<button class="segcard" data-sg="${k}">${segIco(k)}<b>${esc(SEG[k].n)}</b>${SEG[k].art?`<span class="tag r">norma + ART</span>`:""}</button>`).join("")}</div>`);wireClose(m);
  m.querySelectorAll("[data-sg]").forEach(b=>b.onclick=()=>{m.remove();wizard(cli,b.dataset.sg)})}
 
+/* ================= NOVO (v2.9): personalização completa dos equipamentos, cabos, infraestrutura e energia ================= */
+/* Tipos de cabo: preço por metro e conector usado em cada ponta. Tudo editável na tabela do orçamento. */
+const CABOS={
+ utp5e:{n:"Cabo UTP Cat5e",p:2.6,con:"Conector RJ45 Cat5e",cp:1.2,cpp:2},
+ utp6:{n:"Cabo UTP Cat6",p:3.2,con:"Conector RJ45 Cat6",cp:2.5,cpp:2},
+ coax:{n:"Cabo coaxial bipolar 4 mm 80% malha",p:2.2,con:"Conector BNC de mola + P4",cp:3,cpp:1},
+ manga4:{n:"Cabo manga 4 vias 26 AWG",p:1.3},
+ manga6:{n:"Cabo manga 6 vias 26 AWG",p:1.8},
+ blind:{n:"Cabo blindado 2 × 1,5 mm²",p:4.2},
+ paral:{n:"Cabo paralelo polarizado 2 × 1,5 mm²",p:3.2},
+ pp2:{n:"Cabo PP 2 × 1,0 mm²",p:3.1},
+ pp3:{n:"Cabo PP 3 × 1,5 mm²",p:5.2},
+ cci:{n:"Cabo CCI 2 pares",p:1.3},
+ kv15:{n:"Cabo de alta isolação 15 kV",p:3.6},
+ nenhum:{n:"Sem cabo (sem fio / bateria)",p:0}
+};
+/* Infraestrutura: o que entra por metro. Caixas de passagem pela NBR 5410 (15 m em linha interna, 30 m externa, menos 3 m por curva de 90°). */
+const INFRA={
+ nenhuma:{n:"Sem infraestrutura (forro/aparente)"},
+ pvc34:{n:"Eletroduto PVC rígido 3/4\"",barra:3,pb:9,luva:1.6,abr:"Abraçadeira tipo D 3/4\"",pa:1.2,curva:2.8,caixa:"Caixa de passagem PVC 4×4",pc:6.5},
+ pvc1:{n:"Eletroduto PVC rígido 1\"",barra:3,pb:13,luva:2.2,abr:"Abraçadeira tipo D 1\"",pa:1.5,curva:4.2,caixa:"Caixa de passagem PVC 4×4",pc:6.5},
+ corr:{n:"Eletroduto corrugado 3/4\" (rolo)",rolo:50,pr:65,abr:"Abraçadeira nylon / fixa-fio",pa:.25,caixa:"Caixa 4×2 / 4×4 de embutir",pc:2.2},
+ galv:{n:"Eletroduto galvanizado 3/4\"",barra:3,pb:42,luva:4.5,abr:"Abraçadeira tipo D galvanizada 3/4\"",pa:2.4,curva:9,caixa:"Condulete de alumínio 3/4\"",pc:14},
+ canal:{n:"Canaleta PVC 20 × 10 mm",barra:2,pb:7,luva:0,abr:"Fita dupla-face / bucha e parafuso",pa:.4,curva:3.5,caixa:"Caixa de sobrepor para canaleta",pc:7},
+ calha:{n:"Eletrocalha perfurada 50 × 50 mm",barra:3,pb:48,luva:6,abr:"Suporte/mão-francesa para eletrocalha",pa:9,curva:32,caixa:"Saída de eletrocalha para eletroduto",pc:8}
+};
+/* Padrões de cada equipamento: cabo, consumo (W) e tensão. São valores típicos, editáveis por você (confira o manual do modelo). */
+const DEVDEF={df:{cabo:"blind",w:.1,vdc:"24"},dt:{cabo:"blind",w:.1,vdc:"24"},am:{cabo:"blind",w:.1,vdc:"24"},sav:{cabo:"blind",w:3,vdc:"24"},lem:{cabo:"nenhum",w:3,vdc:"AC"},pls:{cabo:"nenhum",w:0},
+ sbx:{cabo:"nenhum"},mod:{cabo:"nenhum"},wb:{cabo:"nenhum"},tve:{cabo:"nenhum"},sirc:{cabo:"pp2",w:10,vdc:"12"},atr:{cabo:"nenhum"},pt:{cabo:"nenhum"},
+ rj1:{cabo:"utp6",cx:-1},rj2:{cabo:"utp6",cx:-1},apc:{cabo:"utp6",cx:-1},api:{cabo:"utp6",w:13,vdc:"PoE"},ape:{cabo:"utp6",w:18,vdc:"PoE"},
+ lfc:{cabo:"utp5e",w:12,vdc:"12"},lcr:{cabo:"manga6",w:1.5,vdc:"12"},cat:{cabo:"utp5e",w:40,vdc:"AC"},eim:{cabo:"manga4",w:6,vdc:"12"},bsa:{cabo:"manga4",w:0},bem:{cabo:"manga4",w:0},
+ itf:{cabo:"cci",w:0},pext:{cabo:"cci",w:2,vdc:"12"},vpt:{cabo:"utp5e",w:8,vdc:"AC"},
+ ivp:{cabo:"manga4",w:.2,vdc:"12"},ivx:{cabo:"manga4",w:.6,vdc:"12"},mag:{cabo:"manga4",w:0},sirm:{cabo:"pp2",w:12,vdc:"12"},tec:{cabo:"manga4",w:1,vdc:"12"},
+ fot:{cabo:"manga4",w:1,vdc:"24"},sin:{cabo:"pp2",w:3,vdc:"AC"},bot:{cabo:"manga4",w:0},spr:{cabo:"manga4",w:2,vdc:"24"},sseg:{cabo:"manga4",w:2,vdc:"24"},sel:{cabo:"manga4",w:0},
+ fel:{cabo:"pp2",w:12,vdc:"12"},btf:{cabo:"pp2",w:0},rcv:{cabo:"pp2",w:1,vdc:"12"},fdg:{cabo:"nenhum"},
+ int:{cabo:"nenhum",w:1,vdc:"AC"},tmi:{cabo:"nenhum",w:1,vdc:"AC"},irc:{cabo:"nenhum",w:1,vdc:"AC"},snc:{cabo:"nenhum"},cor:{cabo:"nenhum",w:20,vdc:"AC"},ass:{cabo:"nenhum",w:5,vdc:"AC"},
+ ctt:{cabo:"paral"},cpd:{cabo:"paral"},sub:{cabo:"pp3",w:150,vdc:"AC"},vol:{cabo:"paral"}};
+/* Acessórios que acompanham cada equipamento (kit por unidade). Ponto de partida editável. */
+const KITDEF={df:[["Caixa octogonal 4 × 4 de sobrepor",1,"un",4.5],["Bucha 6 mm e parafuso",2,"un",.3]],dt:[["Caixa octogonal 4 × 4 de sobrepor",1,"un",4.5],["Bucha 6 mm e parafuso",2,"un",.3]],
+ am:[["Caixa 4 × 2 de sobrepor",1,"un",4],["Bucha 6 mm e parafuso",2,"un",.3]],sav:[["Caixa 4 × 2 de sobrepor",1,"un",4],["Bucha 6 mm e parafuso",2,"un",.3]],lem:[["Bucha 6 mm e parafuso",2,"un",.3]],pls:[["Fita dupla-face / parafusos",1,"un",1.5]],
+ eim:[["Suporte em L/ZL para eletroímã",1,"un",45]],bsa:[["Caixa 4 × 2 de sobrepor",1,"un",4]],bem:[["Caixa 4 × 2 de sobrepor",1,"un",4]],lfc:[["Caixa 4 × 2 de embutir/sobrepor",1,"un",4]],lcr:[["Caixa 4 × 2 de embutir/sobrepor",1,"un",4]],
+ itf:[["Caixa 4 × 2 de sobrepor",1,"un",4]],ivp:[["Bucha 6 mm e parafuso",2,"un",.3]],ivx:[["Suporte articulado para sensor externo",1,"un",18]],mag:[["Parafusos para sensor magnético",1,"un",.5]],sirm:[["Bucha 6 mm e parafuso",2,"un",.3]],
+ fot:[["Coluna/suporte para fotocélula",1,"par",55]],ctt:[["Borne de ligação",2,"un",.6]],cpd:[["Suporte de parede para caixa",1,"un",25]],api:[["Patch cord Cat6 1,5 m",1,"un",16]],ape:[["Patch cord Cat6 1,5 m",1,"un",16],["Abraçadeira metálica para poste/parede",1,"un",12]]};
+const devCfg=id=>((DB.col&&DB.col.devcfg)||[]).find(x=>x.id===id);
+/* equipamento com tudo que você personalizou */
+function devFull(d){const id=typeof d==="string"?d:d.t;const base=DEVLIB.find(x=>x.id===id)||(DB.customDevs||[]).find(x=>x.id===id)||devCfg(id)||{id,n:"Equipamento",code:"EQ",p:0};
+ const df=DEVDEF[id]||{},cf=devCfg(id)||{};const o=Object.assign({cabo:base.wired?"manga4":"nenhum",w:0,vdc:"12",cx:0,mo:0},base,df,cf);
+ if(!o.kit)o.kit=(KITDEF[id]||[]).map(([dd,q,un,p])=>({d:dd,q,un,p}));return o}
+function devCable2(d){const f=devFull(d);if((d.cabo||f.cabo)==="nenhum")return 0;return devCable(Object.assign({},d,{t:d.t}))||(d.cable>0?d.cable:0)}
+/* soma de cabos, conectores, kits, infraestrutura e energia a partir dos equipamentos fixados na planta */
+function segExtras(add,v,raw){
+ const D=allDevs();if(!D.length&&!raw.e_on)return{kpi:[],chk:[],mem:[]};
+ const sd=SEGD(),mem=[],kpi=[],chk=[];
+ // cabos por tipo
+ const cab={},con={};D.forEach(d=>{const f=devFull(d),k=d.cabo||f.cabo;if(!CABOS[k]||k==="nenhum"||!(f.wired||d.cabo))return;const m=d.cable>0?d.cable:(()=>{const fp=floorOfDev(d).plan,h=fp.dvr;return(Math.abs(d.x-h.x)+Math.abs(d.y-h.y))/fp.scale*1.1+3})();cab[k]=(cab[k]||0)+m;if(CABOS[k].con&&f.cx>=0)con[k]=(con[k]||0)+(f.cx||CABOS[k].cpp||0)});
+ const totCab=Object.values(cab).reduce((a,b)=>a+b,0);
+ Object.entries(cab).forEach(([k,m])=>{const mm=Math.ceil(m*(1+(+raw.e_folga||0)/100));if(segKey()==="cabeamento"&&k.startsWith("utp"))add("cabo_"+k,"Infraestrutura",`Caixa de ${CABOS[k].n.replace("Cabo ","cabo ")} 305 m`,Math.ceil(mm/305),"cx",k==="utp6"?890:520);else add("cabo_"+k,"Infraestrutura",CABOS[k].n,mm,"m",CABOS[k].p);if(con[k])add("con_"+k,"Infraestrutura",CABOS[k].con,con[k],"un",CABOS[k].cp)});
+ if(totCab)mem.push(`Cabos: soma das rotas de cada equipamento até ${sd.hub?sd.hub.n.toLowerCase():"a central"} na planta (trajeto em L × 1,1 + 3 m de sobra)${+raw.e_folga?` + ${raw.e_folga}% de folga`:""} = ${Math.ceil(totCab*(1+(+raw.e_folga||0)/100))} m.`);
+ // kits de acessórios
+ const kits={};D.forEach(d=>{const f=devFull(d);(f.kit||[]).forEach(k=>{if(!k.d)return;const key=norm(k.d);kits[key]=kits[key]||{d:k.d,q:0,un:k.un||"un",p:+k.p||0};kits[key].q+=(+k.q||0)})});
+ Object.entries(kits).forEach(([k,x],i)=>add("kit_"+k.replace(/[^a-z0-9]/g,"").slice(0,30),"Infraestrutura",x.d,Math.ceil(x.q*100)/100,x.un,x.p));
+ // mão de obra personalizada por equipamento
+ const mo={};D.forEach(d=>{const f=devFull(d);if(+f.mo>0){mo[d.t]=mo[d.t]||{n:f.n,q:0,p:+f.mo};mo[d.t].q++}});
+ Object.entries(mo).forEach(([t,x])=>add("mo_"+t,"Serviços",`Instalação: ${x.n}`,x.q,"un",x.p));
+ // infraestrutura
+ const it=raw.e_inf||sd.infDef||"pvc34",I=INFRA[it]||INFRA.nenhuma,mInf=raw.e_minf===undefined||raw.e_minf===""?Math.ceil(totCab*.6):+raw.e_minf,curvas=+raw.e_curv||Math.ceil(D.filter(d=>devFull(d).wired).length/2),ext=raw.e_ext==="Externa";
+ if(I.barra&&mInf>0){const nb=Math.ceil(mInf/I.barra);add("inf_"+it,"Infraestrutura",`${I.n} (barra de ${I.barra} m)`,nb,"barra",I.pb);if(I.luva)add("luv_"+it,"Infraestrutura",`Luva para ${I.n.toLowerCase()}`,Math.max(0,nb-1),"un",I.luva);
+  const abr=Math.ceil(nb*(+raw.e_abr||2));add("abr_"+it,"Infraestrutura",I.abr,abr,"un",I.pa);if(it!=="canal"&&it!=="calha")add("bch_"+it,"Infraestrutura","Bucha 6 mm e parafuso",abr*(it==="pvc34"||it==="pvc1"||it==="galv"?2:1),"un",.3);
+  if(I.curva&&curvas)add("crv_"+it,"Infraestrutura",`Curva 90° para ${I.n.toLowerCase()}`,curvas,"un",I.curva)}
+ if(I.rolo&&mInf>0){add("inf_"+it,"Infraestrutura",`${I.n} (${I.rolo} m)`,Math.ceil(mInf/I.rolo),"rolo",I.pr);add("abr_"+it,"Infraestrutura",I.abr,Math.ceil(mInf*(+raw.e_abr||2)/3),"un",I.pa)}
+ if(I.caixa&&mInf>0){const lim=Math.max(6,(ext?30:15)-3*Math.min(3,Math.round(curvas/Math.max(1,Math.ceil(mInf/(ext?30:15)))))),cx=Math.ceil(mInf/lim);add("cxp_"+it,"Infraestrutura",I.caixa,cx,"un",I.pc);
+  mem.push(`Infraestrutura: ${mInf} m de ${I.n.toLowerCase()}${I.barra?` = ${Math.ceil(mInf/I.barra)} barras de ${I.barra} m`:""}; caixas de passagem a cada ${lim} m (NBR 5410: até ${ext?30:15} m em linha ${ext?"externa":"interna"}, menos 3 m por curva de 90°) = ${cx}.`)}
+ if(mInf>0)kpi.push(["Infraestrutura",`${mInf} m · ${I.n}`]);
+ // energia
+ if(raw.e_on){const dc=D.map(devFull).filter(f=>f.vdc==="12"||f.vdc==="24"),poe=D.map(devFull).filter(f=>f.vdc==="PoE"),ac=D.map(devFull).filter(f=>f.vdc==="AC");
+  const Vs=+(raw.e_v||"12"),wdc=dc.reduce((a,f)=>a+(+f.w||0),0),wpoe=poe.reduce((a,f)=>a+(+f.w||0),0),wac=ac.reduce((a,f)=>a+(+f.w||0),0)+(+raw.e_wx||0);
+  const mg=1+(+(raw.e_mg??25))/100,Idc=wdc/Vs,Af=Idc*mg,FT=[1,2,3,5,10,20,30,40,60],ft=FT.find(x=>x>=Af)||Math.ceil(Af);
+  const h=+(raw.e_h??(sd.autH||4)),Ah=Idc*h*mg,BT=[7,9,12,18,26,40,60,100];let bt=BT.find(x=>x>=Ah),nbt=1;if(!bt){bt=100;nbt=Math.ceil(Ah/100)}
+  if(wdc>0&&raw.e_ft!==false){add("e_ft","Energia",`Fonte ${Vs} V ${ft} A`,1,"un",ft<=2?45:ft<=5?85:ft<=10?140:ft<=20?260:420)}
+  if(wdc>0&&h>0&&raw.e_bt!==false){add("e_bt","Energia",`Bateria selada 12 V ${bt} Ah${Vs===24?" (2 em série para 24 V)":""}`,nbt*(Vs===24?2:1),"un",{7:95,9:120,12:150,18:230,26:340,40:520,60:690,100:1150}[bt])}
+  const wnb=(wac+wpoe/.85+wdc)*mg,VA=wnb/(+(raw.e_fp||.7)),NB=[600,800,1200,1500,2200,3000],nb=NB.find(x=>x>=VA)||Math.ceil(VA/1000)*1000;
+  if(raw.e_nb&&wnb>0)add("e_nb","Energia",`Nobreak ${nb} VA`,1,"un",nb<=800?520:nb<=1200?690:nb<=1500?890:nb<=2200?1450:2200);
+  if(raw.e_cir){const V=+(raw.e_vac||"220"),I=(wnb+(+raw.e_wcir||0))/V,BR=[10,16,20,25,32,40],dj=BR.find(b=>b>=I*1.25)||40,SEC=[[2.5,24],[4,32],[6,41],[10,57]],sc=(SEC.find(([s,iz])=>iz>=dj)||SEC[3])[0];
+   add("e_dj","Energia",`Disjuntor ${V===220?"bipolar":"unipolar"} ${dj} A (circuito dedicado)`,1,"un",dj<=20?32:55);add("e_dr","Energia","Interruptor DR 30 mA",raw.e_drq?1:0,"un",160);add("e_dps","Energia","DPS classe II 275 V",raw.e_dpsq?(V===220?2:1):0,"un",65);
+   add("e_cab","Energia",`Cabo flexível ${String(sc).replace(".",",")} mm² (fase, neutro e terra)`,Math.ceil((+raw.e_dq||15)*3),"m",{2.5:3.2,4:5,6:7.2,10:11.5}[sc]);add("e_tom","Energia","Tomada 2P+T 20 A com caixa",1,"un",22);
+   mem.push(`Circuito: carga de ${Math.round(wnb+(+raw.e_wcir||0))} W em ${V} V = ${f1(I)} A; disjuntor ${dj} A; cabo ${String(sc).replace(".",",")} mm² (NBR 5410, mínimo de 2,5 mm² em circuito de força).`)}
+  if(wdc)mem.push(`Corrente contínua: ${f1(wdc)} W ÷ ${Vs} V = ${f1(Idc)} A × ${f1(mg)} (margem) = ${f1(Af)} A → fonte de ${ft} A.`);
+  if(wdc&&h)mem.push(`Bateria: ${f1(Idc)} A × ${h} h × ${f1(mg)} = ${f1(Ah)} Ah → ${nbt*(Vs===24?2:1)} × ${bt} Ah.`);
+  if(wpoe)mem.push(`PoE: ${f1(wpoe)} W nos access points/equipamentos alimentados pelo switch; confira o orçamento PoE do switch escolhido.`);
+  if(raw.e_nb&&wnb)mem.push(`Nobreak: ${Math.round(wnb)} W ÷ FP ${raw.e_fp||.7} = ${Math.round(VA)} VA → ${nb} VA.`);
+  kpi.push(["Consumo",`${f1(wdc)} W CC${wpoe?` · ${f1(wpoe)} W PoE`:""}${wac?` · ${f1(wac)} W CA`:""}`]);if(wdc)kpi.push(["Fonte e bateria",`${ft} A · ${nbt*(Vs===24?2:1)}× ${bt} Ah (${h} h)`])}
+ return{kpi,chk,mem}}
+/* cartão de personalização na aba Cálculo */
+function segCustomHTML(B){const raw=S.segIn||{},sd=SEGD(),D=allDevs(),g={};D.forEach(d=>{g[d.t]=(g[d.t]||0)+1});
+ const sel=(id,l,opts,val)=>`<div><label class="lbl" for="${id}">${l}</label><select class="in-f" id="${id}">${opts.map(([k,n])=>`<option value="${k}" ${String(val)===String(k)?"selected":""}>${esc(n)}</option>`).join("")}</select></div>`;
+ const inp=(id,l,val,ph)=>`<div><label class="lbl" for="${id}">${l}</label><input class="in-f num" id="${id}" type="number" step="any" value="${val===undefined?"":esc(val)}" placeholder="${esc(ph||"")}"></div>`;
+ const chk=(id,l,val)=>`<label class="chk"><input type="checkbox" id="${id}" ${val?"checked":""}>${l}</label>`;
+ return`<div class="card stack"><h3>Equipamentos na planta ${NEW}</h3>${Object.keys(g).length?`<div class="camlist">${Object.entries(g).map(([t,n])=>{const f=devFull(t),cat=f.cat&&DB.col.catalog.find(c=>c.id===f.cat);return`<button class="camrow" data-dcf="${t}"><span class="n">${esc(f.code)}</span><span class="d"><b>${n} × ${esc(cat?cat.nome:f.n)}</b><br><span class="muted">${esc(CABOS[f.cabo]?CABOS[f.cabo].n:"")}${f.w?` · ${f.w} W ${f.vdc==="AC"?"CA":f.vdc==="PoE"?"PoE":f.vdc+" V"}`:""}${(f.kit||[]).length?` · kit com ${f.kit.length} itens`:""}${cat&&cat.estoque!=null?` · estoque ${cat.estoque}`:""}</span></span><span class="tag">Personalizar</span></button>`}).join("")}</div>`:`<p class="muted" style="margin:0">Fixe equipamentos na planta para somar cabos, conectores, acessórios e energia automaticamente.</p>`}
+ <p class="muted" style="margin:0;font-size:12.5px">Toque num equipamento para escolher o produto do seu catálogo, o cabo, o consumo, a mão de obra e os acessórios que acompanham cada unidade.</p></div>
+ <div class="card stack"><h3>Cabos e infraestrutura ${NEW}</h3><div class="grid2">
+ ${sel("e_inf","Infraestrutura",Object.entries(INFRA).map(([k,x])=>[k,x.n]),raw.e_inf||sd.infDef||"pvc34")}${sel("e_ext","Linha",[["Interna","Interna"],["Externa","Externa"]],raw.e_ext||"Interna")}
+ ${inp("e_minf","Metros de infraestrutura",raw.e_minf,"auto: 60% dos cabos")}${inp("e_curv","Curvas de 90°",raw.e_curv,"auto")}${inp("e_abr","Abraçadeiras por barra",raw.e_abr,"2")}${inp("e_folga","Folga nos cabos (%)",raw.e_folga,"0")}</div></div>
+ <div class="card stack"><div class="row" style="justify-content:space-between"><h3>Energia ${NEW}</h3>${chk("e_on","Calcular",raw.e_on)}</div>
+ ${raw.e_on?`<div class="grid2">${sel("e_v","Tensão da fonte",[["12","12 V"],["24","24 V"]],raw.e_v||"12")}${inp("e_h","Autonomia da bateria (h)",raw.e_h,String(sd.autH||4))}${inp("e_mg","Margem de segurança (%)",raw.e_mg,"25")}${inp("e_wx","Outras cargas em CA (W)",raw.e_wx,"0")}${inp("e_fp","Fator de potência do nobreak",raw.e_fp,"0,7")}${sel("e_vac","Tensão da rede",[["127","127 V"],["220","220 V"]],raw.e_vac||"220")}${inp("e_dq","Distância do quadro (m)",raw.e_dq,"15")}${inp("e_wcir","Carga extra no circuito (W)",raw.e_wcir,"0")}</div>
+ <div class="stack" style="gap:6px">${chk("e_ft","Incluir fonte",raw.e_ft!==false)}${chk("e_bt","Incluir bateria",raw.e_bt!==false)}${chk("e_nb","Incluir nobreak",raw.e_nb)}${chk("e_cir","Incluir circuito dedicado (disjuntor, cabo, tomada)",raw.e_cir)}${raw.e_cir?chk("e_drq","Com DR 30 mA",raw.e_drq)+chk("e_dpsq","Com DPS",raw.e_dpsq):""}</div>`:`<p class="muted" style="margin:0;font-size:13px">Soma o consumo de cada equipamento e calcula fonte, bateria pela autonomia que você escolher, nobreak e circuito.</p>`}</div>
+ ${B.mem&&B.mem.length?`<div class="card stack" style="gap:6px"><h3>Memória de cálculo</h3>${B.mem.map(t=>`<p style="margin:0;font-size:13.5px">${esc(t)}</p>`).join("")}</div>`:""}`}
+function segCustomWire(){S.segIn=S.segIn||{};const R=S.segIn,go=()=>{S.qty={};save();vOrc()};
+ ["e_inf","e_ext","e_v","e_vac"].forEach(k=>{const e=$("#"+k);if(e)e.onchange=()=>{R[k]=e.value;go()}});
+ ["e_minf","e_curv","e_abr","e_folga","e_h","e_mg","e_wx","e_fp","e_dq","e_wcir"].forEach(k=>{const e=$("#"+k);if(e)e.onchange=()=>{R[k]=e.value===""?undefined:+String(e.value).replace(",",".");if(R[k]===undefined)delete R[k];go()}});
+ ["e_on","e_ft","e_bt","e_nb","e_cir","e_drq","e_dpsq"].forEach(k=>{const e=$("#"+k);if(e)e.onchange=()=>{R[k]=e.checked;go()}});
+ document.querySelectorAll("[data-dcf]").forEach(b=>b.onclick=()=>devCfgForm(b.dataset.dcf,()=>vOrc()));
+}
+/* editor do equipamento (vale para todos os projetos) */
+function devCfgForm(id,done){const f=devFull(id),kit=JSON.parse(JSON.stringify(f.kit||[]));let cat=f.cat||0;
+ const draw=()=>{const c=cat&&DB.col.catalog.find(x=>x.id===cat);m.querySelector(".sheet").innerHTML=sheetHead("Personalizar equipamento")+`<div class="stack">
+ <div class="grid2">${fld("dc_n","Nome",f.n)}${fld("dc_c","Sigla na planta",f.code)}</div>
+ <div><span class="lbl">Produto do seu catálogo (nome e preço no orçamento)</span><div class="row"><button class="btn sm" id="dc_cat">${c?esc(c.nome):"Escolher do catálogo"}</button>${c?`<span class="muted" style="font-size:12.5px">custo ${brl(c.custo||c.preco)}${c.estoque!=null?` · estoque ${c.estoque}`:""}</span><button class="btn sm ghost" id="dc_catx">Desvincular</button>`:""}</div></div>
+ <div class="grid2"><div><label class="lbl" for="dc_cb">Cabo</label><select class="in-f" id="dc_cb">${Object.entries(CABOS).map(([k,x])=>`<option value="${k}" ${f.cabo===k?"selected":""}>${esc(x.n)}</option>`).join("")}</select></div>
+ ${fld("dc_cx","Conectores por ponto (vazio = padrão do cabo)",f.cx||"","","number")}
+ ${fld("dc_w","Consumo (W)",f.w||"","0","number")}<div><label class="lbl" for="dc_v">Alimentação</label><select class="in-f" id="dc_v">${[["12","12 V"],["24","24 V"],["PoE","PoE"],["AC","127/220 V"]].map(([k,n])=>`<option value="${k}" ${f.vdc===k?"selected":""}>${n}</option>`).join("")}</select></div>
+ ${fld("dc_mo","Mão de obra por unidade (R$, opcional)",f.mo||"","0","number")}${fld("dc_r","Raio de cobertura (m)",f.r||"","","number")}${fld("dc_a","Abertura (graus)",f.ang||"","","number")}</div>
+ <div><span class="lbl">Acessórios por unidade (kit)</span><div class="stack" style="gap:8px">${kit.map((k,i)=>`<div class="row" style="flex-wrap:nowrap;gap:6px"><input class="in-f" data-kd="${i}" value="${esc(k.d)}" style="flex:3;min-width:0" placeholder="Descrição"><input class="in-f num" data-kq="${i}" value="${k.q}" style="flex:1;min-width:0" inputmode="decimal" aria-label="Quantidade"><input class="in-f" data-ku="${i}" value="${esc(k.un||"un")}" style="flex:1;min-width:0" aria-label="Unidade"><input class="in-f num" data-kp="${i}" value="${dec(k.p||0)}" style="flex:1.4;min-width:0" inputmode="decimal" aria-label="Custo"><button class="btn sm ghost" data-kx="${i}" aria-label="Remover">✕</button></div>`).join("")}</div>
+  <div class="row" style="margin-top:8px"><button class="btn sm" id="dc_ka">+ Acessório</button><button class="btn sm" id="dc_kc">+ Do catálogo</button></div></div>
+ <div class="row" style="justify-content:space-between"><button class="btn ghost" id="dc_rs">Restaurar padrão</button><button class="btn pri" id="dc_s">Salvar para todos os projetos</button></div></div>`;wireClose(m);
+  const rd=()=>{m.querySelectorAll("[data-kd]").forEach(e=>kit[+e.dataset.kd].d=e.value);m.querySelectorAll("[data-kq]").forEach(e=>kit[+e.dataset.kq].q=num(e.value));m.querySelectorAll("[data-ku]").forEach(e=>kit[+e.dataset.ku].un=e.value);m.querySelectorAll("[data-kp]").forEach(e=>kit[+e.dataset.kp].p=num(e.value));
+   f.n=$("#dc_n",m).value;f.code=$("#dc_c",m).value;f.cabo=$("#dc_cb",m).value;f.cx=+$("#dc_cx",m).value||0;f.w=num($("#dc_w",m).value);f.vdc=$("#dc_v",m).value;f.mo=num($("#dc_mo",m).value);f.r=num($("#dc_r",m).value);f.ang=num($("#dc_a",m).value)};
+  m.querySelectorAll("[data-kx]").forEach(b=>b.onclick=()=>{rd();kit.splice(+b.dataset.kx,1);draw()});
+  $("#dc_ka",m).onclick=()=>{rd();kit.push({d:"",q:1,un:"un",p:0});draw()};
+  $("#dc_kc",m).onclick=()=>{rd();catalogPick("i",it=>{kit.push({d:it.nome,q:1,un:it.un||"un",p:+(it.custo||it.preco)||0});draw()})};
+  $("#dc_cat",m).onclick=()=>{rd();catalogPick("i",it=>{cat=it.id;draw()})};if($("#dc_catx",m))$("#dc_catx",m).onclick=()=>{rd();cat=0;draw()};
+  $("#dc_rs",m).onclick=()=>{const o=devCfg(id);if(o)removeRec("devcfg",id);m.remove();toast("Equipamento voltou ao padrão");done&&done()};
+  $("#dc_s",m).onclick=()=>{rd();const rec={id,n:f.n,code:(f.code||"EQ").toUpperCase().slice(0,3),cabo:f.cabo,cx:f.cx,w:f.w,vdc:f.vdc,mo:f.mo,r:f.r,ang:f.ang,kit:kit.filter(k=>k.d&&String(k.d).trim()),cat};
+   const base=DEVLIB.find(x=>x.id===id);if(!base){const cd=(DB.customDevs||[]).find(x=>x.id===id);if(cd)Object.assign(rec,{seg:cd.seg,custom:1,wired:cd.wired})}
+   upsert("devcfg",rec);m.remove();toast("Equipamento personalizado para todos os projetos");done&&done()}};
+ const m=modal("");draw()}
+
+Object.assign(SEG.incendio,{genCab:"cab",autH:24});["wifi"].forEach(k=>SEG[k].genCab="utp");["acesso","interfonia","alarme","som","fechele","portao","porta"].forEach(k=>SEG[k].genCab="cab");SEG.cabeamento.genCab="cx";SEG.incendio.genInf="elet";SEG.cabeamento.genInf="elr";
 /* ================= BANCO DE EQUIPAMENTOS ================= */
 function lensUI(c,l,h){
  if(l.type==="Fisheye")return`<p class="muted" style="margin:0;font-size:12.5px">Olho de peixe: visão 360°.</p>`;
@@ -1763,7 +1909,7 @@ function planImage(maxW=1500){
 /* ================= ORÇAMENTO ================= */
 function vOrc(){
  const B=bom(),st=storage(),cfg=S.cfg;
- const grps=["Equipamentos","Infraestrutura","Serviços"];
+ const grps=["Equipamentos","Energia","Infraestrutura","Serviços"];
  const rows=grps.map(g=>{const it=B.items.filter(i=>i.grp===g);if(!it.length)return"";return`<tr class="grp"><td colspan="6">${g}${g==="Serviços"?"":` · venda = custo + ${cfg.markup}%`}</td></tr>`+it.map(i=>`<tr>
   <td><input class="desc" ${i.extra?`data-xd="${i.extra.id}"`:`data-dk="${i.key}"`} value="${esc(i.desc)}"></td>
   <td class="r"><input class="q num" data-q="${i.key}" type="number" min="0" value="${i.qty}"></td><td>${i.unit}</td>
@@ -1771,7 +1917,7 @@ function vOrc(){
   <td class="r num">${brl(i.sale)}</td><td class="r num"><b>${brl(i.total)}</b>${i.extra?` <button class="btn sm ghost" data-xr="${i.extra.id}" aria-label="Remover">×</button>`:""}</td></tr>`).join("")}).join("");
  $("#main").innerHTML=`<section class="view gut"><div class="wrapc stack">
  <div class="row" style="justify-content:space-between"><h2>${isSeg()?"Cálculo e orçamento":"Orçamento"}</h2><span class="muted">${isSeg()?allDevs().length+" equipamentos na planta"+(B.mIP?` · ${B.mIP} m de cabo`:""):`${allCams().length} câmeras · ${B.mHD+B.mIP} m de cabo`}</span></div>
- ${isSeg()?segFieldsHTML(B):""}
+ ${isSeg()?segFieldsHTML(B)+segCustomHTML(B):""}
  <div class="tot"><div><small>Materiais</small><b class="num">${brl(B.mat)}</b></div><div><small>Serviços</small><b class="num">${brl(B.srv)}</b></div><div><small>Margem + mão de obra</small><b class="num">${brl(B.total-B.cost)}</b></div><div class="big"><small>Total ao cliente</small><b class="num">${brl(B.total)}</b></div></div>
  <div class="card"><div class="grid2">
   <div><label class="lbl" for="o_mk">Margem sobre materiais (%)</label><input class="in-f" id="o_mk" type="number" value="${cfg.markup}"></div>
@@ -1799,7 +1945,7 @@ function vOrc(){
  document.querySelectorAll("[data-xr]").forEach(b=>b.onclick=()=>{S.extra=S.extra.filter(e=>e.id!==b.dataset.xr);save();vOrc()});
  $("#o_add").onclick=()=>catalogPick(null,it=>{S.extra.push({id:uid(),desc:it.nome,qty:1,unit:it.un||"un",price:+it.preco||0,grp:it.tipo==="s"?"Serviços":"Equipamentos",fixed:true});save();vOrc()});
  $("#o_q").onclick=()=>projectToQuote();
- if(isSeg())segFieldsWire();
+ if(isSeg()){segFieldsWire();segCustomWire()}
  $("#o_rs").onclick=()=>{S.qty={};S.prices={};S.desc={};save();vOrc();toast("Valores automáticos restaurados")};
  $("#o_wa").onclick=()=>{const t=`*${DOCT[S.type].n} ${S.number}*\nCliente: ${S.client.name}\n${isSeg()?SEGD().n:allCams().length+" câmeras · gravação de "+S.cfg.days+" dias"}\nMateriais: ${brl(B.mat)}\nServiços: ${brl(B.srv)}${B.disc?`\nDesconto: -${brl(B.disc)}`:""}\n*Total: ${brl(B.total)}*\nValidade: ${S.meta.validity} dias\n${DB.company.name} · ${DB.company.phone}`;copy(t)};
 }
@@ -1867,7 +2013,7 @@ function camTable(rows,tech){
  return`<table class="t"><thead><tr><th class="c">Nº</th><th>Local</th><th>${S.cfg.showBrand?"Modelo":"Tipo"}</th><th class="c">Lente</th><th class="c">Ângulo</th>${tech?`<th class="c">Detectar</th><th class="c">Observar</th>`:""}<th class="c">Reconhecer</th><th class="c">Identificar</th>${S.type==="relatorio"?`<th>Situação</th>`:""}</tr></thead><tbody>${rows.map(c=>{const l=libOf(c);return`<tr><td class="c"><b>${String(camNo(c)).padStart(2,"0")}</b></td><td>${esc(c.note||"—")}</td><td>${S.cfg.showBrand?esc(l.brand+" "+l.model):esc(l.type+" "+TECHN[l.tech])} · ${l.mp}MP${l.night!=="IR"?" · "+NIGHTN[l.night]:""}</td><td class="c">${l.type==="Fisheye"||!c.lens?"—":f1(c.lens)+" mm"}</td><td class="c">${Math.round(hfov(c))}°</td>${tech?`<td class="c">${f1(doriDist(c,25))} m</td><td class="c">${f1(doriDist(c,62.5))} m</td>`:""}<td class="c">${f1(doriDist(c,125))} m</td><td class="c">${f1(doriDist(c,250))} m</td>${S.type==="relatorio"?`<td><span class="stat" style="background:${STATUS[c.status].c}">${STATUS[c.status].n}</span></td>`:""}</tr>`}).join("")}</tbody></table>`;
 }
 function bomTable(items,vals){return`<table class="t"><thead><tr><th>Descrição</th><th class="c">Qtd</th><th class="c">Un</th>${vals?`<th class="r">Unitário</th><th class="r">Total</th>`:""}</tr></thead><tbody>${items.map(i=>i.hdr?`<tr><td colspan="${vals?5:3}" style="background:#faf9f5;font-weight:700;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:#666">${i.hdr}</td></tr>`:`<tr><td>${esc(i.desc)}</td><td class="c">${i.qty}</td><td class="c">${i.unit}</td>${vals?`<td class="r">${brl(i.sale)}</td><td class="r"><b>${brl(i.total)}</b></td>`:""}</tr>`).join("")}</tbody></table>`}
-function bomRows(B){const out=[];["Equipamentos","Infraestrutura","Serviços"].forEach(g=>{const it=B.items.filter(i=>i.grp===g&&i.qty>0);if(it.length){out.push({hdr:g});out.push(...it)}});return out}
+function bomRows(B){const out=[];["Equipamentos","Energia","Infraestrutura","Serviços"].forEach(g=>{const it=B.items.filter(i=>i.grp===g&&i.qty>0);if(it.length){out.push({hdr:g});out.push(...it)}});return out}
 function totBox(B){return`<div class="totbox"><div><span>Materiais e equipamentos</span><b>${brl(B.mat)}</b></div><div><span>Serviços</span><b>${brl(B.srv)}</b></div>${B.disc?`<div><span>Desconto (${S.cfg.discount}%)</span><b>− ${brl(B.disc)}</b></div>`:""}<div class="g"><span>Total</span><span style="color:#F22B0C">${brl(B.total)}</span></div></div>`}
 function legend(){return`<div class="leg">${DORI.map(d=>`<span><i style="background:${d.c};opacity:.75"></i>${d.n} (${d.ppm} px/m)</span>`).join("")}<span><i style="background:#F22B0C;border-radius:50%"></i>Câmera</span><span><i style="background:#262626"></i>Gravador</span></div>`}
 function sigs(){return`<div class="sig"><div><b>${esc(DB.company.resp)}</b><br>${esc(DB.company.name)}</div><div><b>${esc(S.client.contact||S.client.name||"Cliente")}</b><br>${esc(S.client.name)}${S.client.doc?" · "+esc(S.client.doc):""}</div></div>`}
@@ -1960,7 +2106,7 @@ let dl;async function saveFile(name,data){
 
 /* ================= DADOS DO APP DE ORÇAMENTO (fundidos) ================= */
 const CUR_SYM=["R$","US$","€"],CUR_LBL=["R$ (Brasil)","US$ (Dólar)","€ (Euro)"];
-const COLS=["clients","catalog","quotes","modelos","ordens","equip","certs"];
+const COLS=["clients","catalog","quotes","modelos","ordens","equip","certs","devcfg"];
 const UFS=Object.keys(MUN).sort();
 function initOrcData(){
  DB.col=DB.col||{};COLS.forEach(k=>DB.col[k]=DB.col[k]||[]);
@@ -2206,7 +2352,7 @@ function openQuote(q,prefill){QF={open:true,q:q?JSON.parse(JSON.stringify(q)):ne
 function catalogPick(t,cb){
  const m=modal(sheetHead(t==="s"?"Catálogo de serviços":"Catálogo de itens")+`<input class="in-f" id="cp_q" placeholder="Pesquisar"><div class="camlist" id="cp_l" style="margin-top:12px"></div><button class="btn sm" id="cp_new" style="margin-top:12px">+ Cadastrar no catálogo</button>`);wireClose(m);
  const draw=()=>{const q=$("#cp_q",m).value;const l=DB.col.catalog.filter(o=>(t==null||(o.tipo==="s")===(t==="s"))&&hit(o.nome,q)).sort((a,b)=>norm(a.nome).localeCompare(norm(b.nome)));
-  $("#cp_l",m).innerHTML=l.slice(0,150).map(o=>`<button class="camrow" data-cp="${o.id}"><span class="d"><b>${esc(o.nome)}</b><br><span class="muted">${o.tipo==="s"?"serviço":"item"}${o.un?" · "+esc(o.un):""}</span></span><span class="num" style="font-size:13px;white-space:nowrap">${brl(o.preco)}</span></button>`).join("")+(l.length>150?`<p class="muted">Mostrando 150 de ${l.length}. Refine a busca.</p>`:"")||`<p class="muted">Nada encontrado.</p>`;
+  $("#cp_l",m).innerHTML=l.slice(0,150).map(o=>`<button class="camrow" data-cp="${o.id}"><span class="d"><b>${esc(o.nome)}</b><br><span class="muted">${o.tipo==="s"?"serviço":"item"}${o.un?" · "+esc(o.un):""}${o.estoque!=null&&o.tipo!=="s"?` · <b style="color:${o.estoque>0?"#2e8b45":"var(--red)"}">estoque ${f1(o.estoque)}</b>`:""}${o.cod?" · cód. "+esc(o.cod):""}</span></span><span class="num" style="font-size:13px;white-space:nowrap">${brl(o.preco)}</span></button>`).join("")+(l.length>150?`<p class="muted">Mostrando 150 de ${l.length}. Refine a busca.</p>`:"")||`<p class="muted">Nada encontrado.</p>`;
   m.querySelectorAll("[data-cp]").forEach(b=>b.onclick=()=>{m.remove();cb(DB.col.catalog.find(o=>String(o.id)===b.dataset.cp))})};
  $("#cp_q",m).oninput=draw;$("#cp_new",m).onclick=()=>catEdit(null,t==="s",it=>{m.remove();cb(it)});draw();setTimeout(()=>$("#cp_q",m).focus(),50);
 }
@@ -2577,6 +2723,8 @@ function quotePages(q){
 
 /* ---------- novidades ---------- */
 const NEWS={feitos:[
+ ["Equipamentos personalizáveis","Cada equipamento da planta com produto do catálogo, cabo, conectores, consumo, mão de obra e kit de acessórios; cabos e infraestrutura (barras, luvas, curvas, abraçadeiras, caixas pela NBR 5410) e energia (fonte, bateria, nobreak e circuito) somados no orçamento.","Pedido seu"],
+ ["Estoque pelo XML da nota","Importe o XML da NF-e no Catálogo: soma ao estoque dos itens existentes, cria os novos com a margem escolhida e guarda o histórico de entradas.","Pedido seu"],
  ["Projetos para todos os serviços","Alarme de incêndio, energia solar, carregador de carro elétrico, cerca elétrica, cabeamento, Wi-Fi, controle de acesso, alarme, interfonia, portão, porta automática, fechaduras, casa inteligente, sonorização e manutenção de computadores: cada um com planta, banco de equipamentos, cálculo, verificações de norma, PDF e orçamento.","Pedido seu"],
  ["Calendário de visitas","Calendário na aba Serviços com avisos no celular 15 min, 30 min, 1 hora ou 1 dia antes.","Pedido seu"],
  ["Relatório livre","Vistoria, visita técnica, durante ou pós-serviço: texto do que foi feito, materiais utilizados, fotos com legenda; planta e câmeras opcionais.","Pedido seu"],
@@ -3077,23 +3225,52 @@ setTimeout(()=>{try{const l=posvDue();if(!l.length||DB.posvAviso===today())retur
 let KF={search:"",f:0};
 function vCatalog(){
  $("#main").innerHTML=`<section class="view gut"><div class="wrapc">
- <div class="hero"><div><h2>Catálogo</h2><p>Produtos e serviços com preço de venda, usados nos orçamentos e nos projetos.</p></div><div class="row"><button class="btn" id="k_ns">+ Novo serviço</button><button class="btn pri" id="k_ni">+ Novo item</button></div></div>
+ <div class="hero"><div><h2>Catálogo</h2><p>Produtos e serviços com preço de venda, usados nos orçamentos e nos projetos.</p></div><div class="row"><button class="btn" id="k_xml">Importar XML da nota ${NEW}</button><button class="btn" id="k_ns">+ Novo serviço</button><button class="btn pri" id="k_ni">+ Novo item</button></div></div><input type="file" id="k_xmlf" accept=".xml,text/xml,application/xml" multiple hidden>
  <div class="card row" style="justify-content:space-between;margin-bottom:14px"><div><b>Banco de câmeras</b><br><span class="muted" style="font-size:13px">${LIB.length} modelos Intelbras, Hikvision, HiLook e JFL, mais as suas</span></div><button class="btn" id="k_cam">Abrir banco</button></div>
+ <div class="card row" style="justify-content:space-between;margin-bottom:14px"><div><b>Equipamentos dos serviços ${NEW}</b><br><span class="muted" style="font-size:13px">Cabos, consumo, acessórios e produto vinculado de cada equipamento da planta</span></div><button class="btn" id="k_eqs">Personalizar</button></div>
  <input class="in-f" id="k_s" placeholder="Pesquisar item ou serviço" value="${esc(KF.search)}"><div class="chips" style="margin:12px 0 14px">${["Tudo","Itens","Serviços"].map((t,i)=>`<button class="chip" data-kf="${i}" aria-pressed="${KF.f===i}">${t}</button>`).join("")}</div>
  <div class="camlist" id="k_l"></div></div></section>`;
  const draw=()=>{const q=$("#k_s").value;KF.search=q;const l=DB.col.catalog.filter(o=>(KF.f===0||(KF.f===2)===(o.tipo==="s"))&&hit(o.nome,q)).sort((a,b)=>norm(a.nome).localeCompare(norm(b.nome)));
-  $("#k_l").innerHTML=l.slice(0,200).map(o=>`<button class="camrow" data-k="${o.id}"><span class="d"><b>${esc(o.nome)}</b><br><span class="muted">${o.tipo==="s"?"serviço":"item"}${o.un?" · "+esc(o.un):""}</span></span><span class="num" style="font-size:13px;white-space:nowrap;text-align:right">${brl(o.preco)}${o.custo?`<br><span class="muted" style="font-size:11.5px">custo ${brl(o.custo)}</span>`:""}</span></button>`).join("")+(l.length>200?`<p class="muted">Mostrando 200 de ${l.length}. Refine a busca.</p>`:"")||`<div class="card"><p class="muted" style="margin:0">Nada encontrado. Use + Novo item ou + Novo serviço.</p></div>`;
+  $("#k_l").innerHTML=l.slice(0,200).map(o=>`<button class="camrow" data-k="${o.id}"><span class="d"><b>${esc(o.nome)}</b><br><span class="muted">${o.tipo==="s"?"serviço":"item"}${o.un?" · "+esc(o.un):""}${o.estoque!=null&&o.tipo!=="s"?` · <b style="color:${o.estoque>0?"#2e8b45":"var(--red)"}">estoque ${f1(o.estoque)}</b>`:""}${o.cod?" · cód. "+esc(o.cod):""}</span></span><span class="num" style="font-size:13px;white-space:nowrap;text-align:right">${brl(o.preco)}${o.custo?`<br><span class="muted" style="font-size:11.5px">custo ${brl(o.custo)}</span>`:""}</span></button>`).join("")+(l.length>200?`<p class="muted">Mostrando 200 de ${l.length}. Refine a busca.</p>`:"")||`<div class="card"><p class="muted" style="margin:0">Nada encontrado. Use + Novo item ou + Novo serviço.</p></div>`;
   document.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>catEdit(DB.col.catalog.find(x=>String(x.id)===b.dataset.k),false,()=>vCatalog()))};
  $("#k_s").oninput=draw;document.querySelectorAll("[data-kf]").forEach(b=>b.onclick=()=>{KF.f=+b.dataset.kf;vCatalog()});
- $("#k_ni").onclick=()=>catEdit(null,false,()=>vCatalog());$("#k_ns").onclick=()=>catEdit(null,true,()=>vCatalog());$("#k_cam").onclick=()=>pickModel(null,null,true);draw();
+ $("#k_ni").onclick=()=>catEdit(null,false,()=>vCatalog());$("#k_ns").onclick=()=>catEdit(null,true,()=>vCatalog());$("#k_cam").onclick=()=>pickModel(null,null,true);$("#k_eqs").onclick=()=>svcEquipBank();
+ $("#k_xml").onclick=()=>$("#k_xmlf").click();$("#k_xmlf").onchange=e=>{const fs=[...e.target.files];e.target.value="";importNFeFiles(fs)};draw();
 }
 function catEdit(ex,serv,done){
  const v=ex||{nome:"",preco:0,un:serv?"un":"un",tipo:serv?"s":"i"};
- const m=modal(sheetHead(ex?"Editar":(serv?"Novo serviço":"Novo item"))+`<div class="stack"><div><label class="lbl" for="ke_t">Tipo</label><select class="in-f" id="ke_t"><option value="i" ${v.tipo!=="s"?"selected":""}>Item (produto)</option><option value="s" ${v.tipo==="s"?"selected":""}>Serviço</option></select></div>${fld("ke_n","Nome",v.nome)}<div class="grid2"><div><label class="lbl" for="ke_p">Preço</label><input class="in-f num" id="ke_p" inputmode="decimal" value="${v.preco?dec(v.preco):""}" placeholder="0,00"></div>${fld("ke_u","Unidade (un, m, h...)",v.un)}<div><label class="lbl" for="ke_c">Custo (só você vê) ${NEW}</label><input class="in-f num" id="ke_c" inputmode="decimal" value="${v.custo?dec(v.custo):""}" placeholder="0,00"></div></div>
+ const m=modal(sheetHead(ex?"Editar":(serv?"Novo serviço":"Novo item"))+`<div class="stack"><div><label class="lbl" for="ke_t">Tipo</label><select class="in-f" id="ke_t"><option value="i" ${v.tipo!=="s"?"selected":""}>Item (produto)</option><option value="s" ${v.tipo==="s"?"selected":""}>Serviço</option></select></div>${fld("ke_n","Nome",v.nome)}<div class="grid2"><div><label class="lbl" for="ke_p">Preço</label><input class="in-f num" id="ke_p" inputmode="decimal" value="${v.preco?dec(v.preco):""}" placeholder="0,00"></div>${fld("ke_u","Unidade (un, m, h...)",v.un)}<div><label class="lbl" for="ke_c">Custo (só você vê) ${NEW}</label><input class="in-f num" id="ke_c" inputmode="decimal" value="${v.custo?dec(v.custo):""}" placeholder="0,00"></div><div><label class="lbl" for="ke_e">Estoque</label><input class="in-f num" id="ke_e" inputmode="decimal" value="${v.estoque!=null?f1(v.estoque):""}" placeholder="—"></div>${fld("ke_cd","Código / EAN",v.cod||v.ean||"")}${fld("ke_ncm","NCM",v.ncm||"")}${fld("ke_f","Fornecedor",v.forn||"")}</div>${(v.mov||[]).length?`<div><span class="lbl">Últimas entradas</span>${v.mov.slice(-5).reverse().map(x=>`<div class="muted" style="font-size:12.5px">${x.data?fmtDate(x.data):""} · NF ${esc(x.num||"—")} · ${f1(x.q)} ${esc(v.un||"")} · ${brl(x.custo)} · ${esc(x.forn||"")}</div>`).join("")}</div>`:""}
  <div class="row" style="justify-content:flex-end">${ex?`<button class="btn ghost" id="ke_x">Excluir</button>`:""}<button class="btn pri" id="ke_s">Salvar</button></div></div>`);wireClose(m);
- $("#ke_s",m).onclick=()=>{const n=$("#ke_n",m).value.trim();if(!n){toast("Informe o nome do item.");return}const o=Object.assign({},ex||{},{id:ex?ex.id:newId("catalog"),nome:n,preco:num($("#ke_p",m).value),un:$("#ke_u",m).value.trim(),tipo:$("#ke_t",m).value,custo:num($("#ke_c",m).value)});if(!o.custo)delete o.custo;delete o.seed;upsert("catalog",o);m.remove();toast("Salvo no catálogo");done&&done(o)};
+ $("#ke_s",m).onclick=()=>{const n=$("#ke_n",m).value.trim();if(!n){toast("Informe o nome do item.");return}const o=Object.assign({},ex||{},{id:ex?ex.id:newId("catalog"),nome:n,preco:num($("#ke_p",m).value),un:$("#ke_u",m).value.trim(),tipo:$("#ke_t",m).value,custo:num($("#ke_c",m).value)});if(!o.custo)delete o.custo;{const e=$("#ke_e",m).value.trim();if(e==="")delete o.estoque;else o.estoque=num(e);const cd=$("#ke_cd",m).value.trim();if(cd)o.cod=cd;else delete o.cod;const nc=$("#ke_ncm",m).value.trim();if(nc)o.ncm=nc;else delete o.ncm;const fo=$("#ke_f",m).value.trim();if(fo)o.forn=fo;else delete o.forn}delete o.seed;upsert("catalog",o);m.remove();toast("Salvo no catálogo");done&&done(o)};
  if($("#ke_x",m))$("#ke_x",m).onclick=()=>{m.remove();confirmSheet("Excluir do catálogo?",ex.nome,"Excluir",()=>{removeRec("catalog",ex.id);done&&done(null)})};
 }
+
+/* ================= NOVO (v2.9): entrada de estoque pelo XML da NF-e ================= */
+function parseNFe(txt){const doc=new DOMParser().parseFromString(txt,"application/xml");if(doc.getElementsByTagName("parsererror").length)throw new Error("Arquivo XML inválido.");
+ const g=(el,t)=>{if(!el)return"";const x=el.getElementsByTagName(t)[0];return x?x.textContent.trim():""},n=x=>+String(x||"0").replace(",",".")||0;
+ const inf=doc.getElementsByTagName("infNFe")[0];if(!inf)throw new Error("Não é um XML de NF-e (falta infNFe).");
+ const emit=inf.getElementsByTagName("emit")[0],ide=inf.getElementsByTagName("ide")[0];
+ const itens=[...inf.getElementsByTagName("det")].map(det=>{const pr=det.getElementsByTagName("prod")[0],im=det.getElementsByTagName("imposto")[0],q=n(g(pr,"qCom"))||1;
+  const tot=n(g(pr,"vProd"))+n(g(pr,"vFrete"))+n(g(pr,"vSeg"))+n(g(pr,"vOutro"))-n(g(pr,"vDesc"))+n(g(im,"vIPI"))+n(g(im,"vICMSST"));
+  return{cod:g(pr,"cProd"),ean:g(pr,"cEAN"),nome:g(pr,"xProd"),ncm:g(pr,"NCM"),un:(g(pr,"uCom")||"un").toLowerCase(),q,custo:Math.round(tot/q*100)/100}});
+ return{chave:(inf.getAttribute("Id")||"").replace(/^NFe/,""),forn:g(emit,"xNome"),cnpj:g(emit,"CNPJ"),num:g(ide,"nNF"),data:(g(ide,"dhEmi")||g(ide,"dEmi")).slice(0,10),itens}}
+function nfeMatch(it,forn){const ok=e=>e&&!/sem gtin/i.test(e);return DB.col.catalog.find(o=>o.tipo!=="s"&&((ok(it.ean)&&o.ean===it.ean)||(it.cod&&o.cod===it.cod&&o.forn===forn)))||DB.col.catalog.find(o=>o.tipo!=="s"&&norm(o.nome).trim()===norm(it.nome).trim())}
+async function importNFeFiles(files){for(const f of files){let nf;try{nf=parseNFe(await f.text())}catch(e){toast(e.message||"Não foi possível ler o XML.");continue}await nfeReview(nf)}}
+function nfeReview(nf){return new Promise(done=>{const dup=nf.chave&&DB.col.catalog.some(o=>(o.mov||[]).some(m=>m.nf===nf.chave));const rows=nf.itens.map(it=>({it,m:nfeMatch(it,nf.forn),on:true}));let mg=DB.opt.nfMg??50;
+ const m=modal(sheetHead("Entrada de estoque pela nota")+`<div class="stack">
+ <div class="grid2"><div><span class="lbl">Fornecedor</span><b>${esc(nf.forn||"—")}</b></div><div><span class="lbl">Nota fiscal</span><b>Nº ${esc(nf.num||"—")} · ${nf.data?fmtDate(nf.data):""}</b></div></div>
+ ${dup?`<div class="note" style="margin:0;border-left-color:var(--red)"><b>Esta nota já foi lançada.</b> Lançar de novo soma o estoque outra vez.</div>`:""}
+ <div class="grid2"><div><label class="lbl" for="nf_mg">Margem para itens novos (%)</label><input class="in-f num" id="nf_mg" type="number" value="${mg}"></div><label class="chk" style="align-self:end"><input type="checkbox" id="nf_up" checked>Atualizar o custo dos itens que já existem</label></div>
+ <div class="camlist">${rows.map((r,i)=>`<label class="camrow" style="cursor:pointer"><input type="checkbox" data-nfi="${i}" checked style="width:20px;height:20px;flex:0 0 auto"><span class="d"><b>${esc(r.it.nome)}</b><br><span class="muted">${f1(r.it.q)} ${esc(r.it.un)} · custo ${brl(r.it.custo)}${r.it.ncm?" · NCM "+esc(r.it.ncm):""}</span><br><span style="font-size:12.5px;color:${r.m?"#2e8b45":"var(--red)"}">${r.m?`Soma ao estoque de “${esc(r.m.nome)}” (${r.m.estoque||0} → ${f1((r.m.estoque||0)+r.it.q)})`:"Novo item no catálogo"}</span></span></label>`).join("")}</div>
+ <div class="row" style="justify-content:flex-end"><button class="btn pri" id="nf_ok">Lançar ${rows.length} itens no estoque</button></div></div>`);wireClose(m);
+ m.querySelectorAll("[data-nfi]").forEach(c=>c.onchange=()=>{rows[+c.dataset.nfi].on=c.checked;$("#nf_ok",m).textContent=`Lançar ${rows.filter(r=>r.on).length} itens no estoque`});
+ m.querySelector("[data-close]").addEventListener("click",()=>done());
+ $("#nf_ok",m).onclick=()=>{mg=+$("#nf_mg",m).value||0;DB.opt.nfMg=mg;const up=$("#nf_up",m).checked,mov={nf:nf.chave,num:nf.num,forn:nf.forn,data:nf.data||today()};let nN=0,nU=0;
+  rows.filter(r=>r.on).forEach(({it,m:ex})=>{if(ex){const o=Object.assign({},ex);o.estoque=Math.round(((+o.estoque||0)+it.q)*1000)/1000;if(up)o.custo=it.custo;o.cod=o.cod||it.cod;o.ean=o.ean||it.ean;o.ncm=o.ncm||it.ncm;o.forn=o.forn||nf.forn;o.mov=[...(o.mov||[]),Object.assign({q:it.q,custo:it.custo},mov)].slice(-30);upsert("catalog",o);nU++}
+   else{upsert("catalog",{id:newId("catalog"),nome:it.nome,tipo:"i",un:it.un,custo:it.custo,preco:Math.round(it.custo*(1+mg/100)*100)/100,estoque:it.q,cod:it.cod,ean:it.ean,ncm:it.ncm,forn:nf.forn,mov:[Object.assign({q:it.q,custo:it.custo},mov)]});nN++}});
+  m.remove();toast(`Nota ${nf.num||""} lançada: ${nU} itens atualizados, ${nN} novos`);done();if(tab==="catalogo")vCatalog()}})}
+function svcEquipBank(){const m=modal(sheetHead("Equipamentos dos serviços")+`<p class="muted" style="margin:-4px 0 12px">Personalize nome, produto do catálogo, cabo, consumo, mão de obra e acessórios. Vale para todos os projetos.</p><div class="stack">${SEG_ORDER.filter(k=>k!=="cftv").map(k=>`<div><h3 style="margin-bottom:8px">${segIco(k)} ${esc(SEG[k].n)}</h3><div class="camlist">${devLibSeg(k).map(f=>`<button class="camrow" data-bq="${f.id}"><span class="n">${esc(f.code)}</span><span class="d"><b>${esc(f.n)}</b><br><span class="muted">${esc((CABOS[f.cabo]||{n:""}).n)}${(f.kit||[]).length?` · kit com ${f.kit.length} itens`:""}${devCfg(f.id)?" · personalizado":""}</span></span></button>`).join("")||`<p class="muted">Sem equipamentos de planta.</p>`}</div></div>`).join("")}</div>`);wireClose(m);
+ m.querySelectorAll("[data-bq]").forEach(b=>b.onclick=()=>{m.remove();devCfgForm(b.dataset.bq,()=>svcEquipBank())})}
 
 /* ================= ABA EMPRESA ================= */
 function vCompany(){
