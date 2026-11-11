@@ -134,7 +134,7 @@ textarea.in-f{resize:vertical;min-height:90px}
 .dori div{background:var(--bg);border-radius:12px;padding:8px 6px;text-align:center}
 .dori small{display:block;font-size:10.5px;font-weight:700;color:var(--muted)}
 .dori b{font-size:17px;font-weight:700;letter-spacing:-.01em}
-.cbgrid{display:flex;flex-direction:column;gap:8px}.cbrow{display:flex;gap:8px;align-items:stretch}.cbopt{flex:1;min-width:0;border:0;border-radius:14px;background:var(--panel,#fff);box-shadow:inset 0 0 0 1px var(--line);padding:12px 14px;text-align:left;font:inherit;font-size:15px;color:var(--fg);display:flex;align-items:center;justify-content:space-between;gap:6px;cursor:pointer;border-left:5px solid var(--c)}.cbopt span{font-size:12px}.cbopt[aria-pressed=true]{background:var(--c);color:#fff;box-shadow:none}.cbv{flex:0 0 128px;display:flex;align-items:center;gap:4px;border-radius:14px;background:var(--panel,#fff);box-shadow:inset 0 0 0 1px var(--line);padding:0 10px;font-size:14px}.cbv span{color:var(--muted)}.cbv input{width:100%;min-width:0;border:0;background:none;font:inherit;font-size:16px;color:var(--fg);padding:10px 0;text-align:right}span.cbv{justify-content:flex-end}
+.cbgrid{display:flex;flex-direction:column;gap:8px}.cbrow{display:flex;gap:8px;align-items:stretch}.cbopt{flex:1;min-width:0;border:0;border-radius:14px;background:var(--panel,#fff);box-shadow:inset 0 0 0 1px var(--line);padding:12px 14px;text-align:left;font:inherit;font-size:15px;color:var(--fg);display:flex;align-items:center;justify-content:space-between;gap:6px;cursor:pointer;border-left:5px solid var(--c)}.cbopt span{font-size:12px}.cbopt[aria-pressed=true]{background:var(--c);color:#fff;box-shadow:none}.cbv{flex:0 0 128px;display:flex;align-items:center;gap:4px;border-radius:14px;background:var(--panel,#fff);box-shadow:inset 0 0 0 1px var(--line);padding:0 10px;font-size:14px}.cbv span{color:var(--muted);white-space:nowrap}.cbv input{width:100%;min-width:0;border:0;background:none;font:inherit;font-size:16px;color:var(--fg);padding:10px 0;text-align:right}span.cbv{justify-content:flex-end}
 .finbars{display:flex;gap:10px;align-items:flex-end;height:140px;padding-top:8px}.finbars>div{flex:1;display:flex;gap:3px;align-items:flex-end;height:100%;position:relative;padding-bottom:18px}.finbars span{flex:1;min-height:2px;border-radius:5px 5px 0 0}.finbars small{position:absolute;bottom:0;left:0;right:0;text-align:center;font-size:11px;color:var(--mut,#8e8e93)}
 .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle}
 .chips{display:flex;gap:6px;flex-wrap:wrap}
@@ -654,7 +654,7 @@ const uid=()=>Math.random().toString(36).slice(2,9);
 const today=()=>{const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10)};
 const fmtDate=d=>{if(!d)return"";const[y,m,dd]=d.split("-");return`${dd}/${m}/${y}`};
 let toastT;function toast(m){let t=$(".toast");if(!t){t=document.createElement("div");t.className="toast";document.body.appendChild(t)}t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2600)}
-const APP_VER="3.3.1";
+const APP_VER="3.3.2";
 function remoteVer(){const base=location.protocol==="https:"?location.origin+location.pathname.replace(/[^/]*$/,""):"https://elysoon.github.io/orcamento-app/projeta/";
  return fetch(base+"versao.json?nc="+Date.now(),{cache:"no-store"}).then(r=>r.ok?r.json():null).then(j=>j&&j.v||"").catch(()=>"")}
 /* versão do GitHub: se a publicada for mais nova que a aberta, recarrega uma vez sem cache */
@@ -2991,7 +2991,7 @@ function valeForm(c){const m=modal(sheetHead("Adiantamento (vale)")+`<div class=
   if($("#vl_f",m).checked){const f={id:newId("fin"),tipo:"p",desc:`Vale · ${c.nome}${x.obs?" · "+x.obs:""}`,valor:v,venc:x.data,pago:x.data,cat:"Salários e ajudantes",forma:"Dinheiro",colabId:c.id};upsert("fin",f);x.fin=f.id}
   c.vales=[...(c.vales||[]),x];colabSave(c);m.remove();toast(`Vale de ${brl(v)} registrado`);vServices()}}
 function colabSum(c,a,b){const L=Object.entries(c.dias||{}).filter(([k])=>k>=a&&k<=b);const by={};let tot=0,n=0;
- L.forEach(([,x])=>{by[x.t]=(by[x.t]||0)+1;tot+=+x.v||0;if(x.t==="d")n+=1;else if(x.t==="m")n+=.5});return{by,tot,n,qt:L.length}}
+ L.forEach(([,x])=>{by[x.t]=(by[x.t]||0)+1;tot+=x.t==="f"?-(+x.v||0):(+x.v||0);if(x.t==="d")n+=1;else if(x.t==="m")n+=.5});return{by,tot,n,qt:L.length}}
 const sumTxt=s=>Object.keys(CTIP).filter(t=>s.by[t]).map(t=>`${s.by[t]} ${CTIP[t].n.toLowerCase()}${s.by[t]>1&&t!=="m"&&t!=="p"?"s":""}`).join(" · ")||"nenhum dia marcado";
 function vColabs(B){osSyncColabs();colabs().forEach(colabAuto);if(SF.colab){const c=colabs().find(x=>x.id===SF.colab);if(c)return colabView(B,c);SF.colab=null}
  const L=colabs().slice().sort((a,b)=>(b.ativo!==false)-(a.ativo!==false)||norm(a.nome).localeCompare(norm(b.nome)));
@@ -3013,7 +3013,7 @@ function colabView(B,c){const td=today();SF.cmon=SF.cmon||td.slice(0,7);SF.cday=
   cells.push(`<button class="cd${k===td?" td":""}${k===SF.cday?" on":""}" data-cbd="${k}"><span>${d}</span>${x?`<i style="background:${CTIP[x.t].c};color:#fff">${CTIP[x.t].s}</i>`:""}</button>`)}
  const ms=colabSum(c,SF.cmon+"-01",SF.cmon+"-31"),sel=(c.dias||{})[SF.cday],ps=P?colabSum(c,P.ini,P.fim||td):null;
  const opt=t=>{const on=sel&&sel.t===t,v=on?sel.v:cVal(c,t);
-  return`<div class="cbrow" style="--c:${CTIP[t].c}"><button class="cbopt" data-cbt="${t}" aria-pressed="${!!on}"><b>${CTIP[t].n}</b>${on?`<span>marcado</span>`:""}</button>${t==="f"?`<span class="cbv num muted">R$ 0,00</span>`:`<label class="cbv"><span>R$</span><input class="num" data-cbv="${t}" value="${v?dec(v):""}" placeholder="0,00" inputmode="decimal" aria-label="Valor da ${CTIP[t].n.toLowerCase()}"></label>`}</div>`};
+  return`<div class="cbrow" style="--c:${CTIP[t].c}"><button class="cbopt" data-cbt="${t}" aria-pressed="${!!on}"><b>${CTIP[t].n}</b>${on?`<span>marcado</span>`:""}</button>${`<label class="cbv"><span>${t==="f"?"−R$":"R$"}</span><input class="num" data-cbv="${t}" value="${v||t==="f"?dec(v):""}" placeholder="0,00" inputmode="decimal" aria-label="Valor da ${CTIP[t].n.toLowerCase()}"></label>`}</div>`};
  B.innerHTML=`<button class="btn sm ghost" id="cv_bk" style="margin-bottom:10px">‹ Voltar</button>
  <div class="card stack" style="padding:16px;margin-bottom:12px"><div class="row" style="justify-content:space-between;flex-wrap:nowrap"><div><b style="font-size:20px">${esc(c.nome)}</b><br><span class="muted" style="font-size:13px">${esc(c.funcao||"Colaborador")} · diária ${brl(c.diaria||0)}</span></div><button class="btn sm" id="cv_ed">Editar</button></div>
  ${P?(()=>{const va=valesAbertos(c).reduce((a,x)=>a+x.v,0),stop=!!P.fim;return`<div style="background:color-mix(in srgb,${stop?"#c77700":"#2e8b45"} 10%,transparent);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:4px">
@@ -3039,8 +3039,8 @@ function colabView(B,c){const td=today();SF.cmon=SF.cmon||td.slice(0,7);SF.cday=
  B.querySelectorAll("[data-cbd]").forEach(b=>b.onclick=()=>{SF.cday=b.dataset.cbd;vServices()});
  const setDay=(t,v)=>{c.dias=c.dias||{};const o=(c.dias[SF.cday]||{}).os;c.dias[SF.cday]=Object.assign({t,v},o?{os:o}:{});colabSave(c);vServices()};
  const valOf=t=>{const i=B.querySelector(`[data-cbv="${t}"]`);return i?num(i.value):0};
- B.querySelectorAll("[data-cbt]").forEach(b=>b.onclick=()=>{const t=b.dataset.cbt,v=valOf(t);if(t!=="f"&&!(v>0)){const i=B.querySelector(`[data-cbv="${t}"]`);i.focus();toast(`Digite o valor da ${CTIP[t].n.toLowerCase()} ao lado.`);return}setDay(t,t==="f"?0:v)});
- B.querySelectorAll("[data-cbv]").forEach(i=>{i.onfocus=()=>i.select();i.onchange=()=>{const t=i.dataset.cbv,v=num(i.value);const dk=SF.cday;if(sel&&sel.t===t&&v>0){c.dias[dk]={t,v};colabSave(c);toast(`${CTIP[t].n} de ${fmtDate(dk)}: ${brl(v)}`);setTimeout(()=>{if(tab==="servicos"&&SF.colab===c.id)vServices()},250)}}});
+ B.querySelectorAll("[data-cbt]").forEach(b=>b.onclick=()=>{const t=b.dataset.cbt,v=valOf(t);if(t!=="f"&&!(v>0)){const i=B.querySelector(`[data-cbv="${t}"]`);i.focus();toast(`Digite o valor da ${CTIP[t].n.toLowerCase()} ao lado.`);return}setDay(t,v||0)});
+ B.querySelectorAll("[data-cbv]").forEach(i=>{i.onfocus=()=>i.select();i.onchange=()=>{const t=i.dataset.cbv,v=num(i.value);const dk=SF.cday;if(sel&&sel.t===t&&(v>0||t==="f")){c.dias[dk]={t,v};colabSave(c);toast(`${CTIP[t].n} de ${fmtDate(dk)}: ${brl(v)}`);setTimeout(()=>{if(tab==="servicos"&&SF.colab===c.id)vServices()},250)}}});
  if($("#cv_clr"))$("#cv_clr").onclick=()=>{delete c.dias[SF.cday];colabSave(c);vServices()};
  if($("#cv_ini_b"))$("#cv_ini_b").onclick=()=>{if(!(+c.diaria>0)){toast("Coloque o valor da diária em Editar.");return}
   const k=modal(sheetHead("Começou a trabalhar")+`<div class="stack"><div><label class="lbl" for="cv_ini">Dia que começou</label><input class="in-f" type="date" id="cv_ini" value="${SF.cday}"></div><div><span class="lbl">Trabalha</span><div class="chips"><button class="chip" data-wd="5" aria-pressed="true">Segunda a sexta</button><button class="chip" data-wd="6" aria-pressed="false">Segunda a sábado</button></div></div>
