@@ -134,7 +134,7 @@ textarea.in-f{resize:vertical;min-height:90px}
 .dori div{background:var(--bg);border-radius:12px;padding:8px 6px;text-align:center}
 .dori small{display:block;font-size:10.5px;font-weight:700;color:var(--muted)}
 .dori b{font-size:17px;font-weight:700;letter-spacing:-.01em}
-.cbgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.cbopt{border:0;border-radius:14px;background:var(--panel,#fff);box-shadow:inset 0 0 0 1px var(--line);padding:12px;text-align:left;font:inherit;color:var(--fg);display:flex;flex-direction:column;gap:2px;cursor:pointer;border-left:5px solid var(--c)}.cbopt span{font-size:13px;color:var(--muted)}.cbopt[aria-pressed=true]{background:var(--c);color:#fff;box-shadow:none}.cbopt[aria-pressed=true] span{color:#fff}
+.cbgrid{display:flex;flex-direction:column;gap:8px}.cbrow{display:flex;gap:8px;align-items:stretch}.cbopt{flex:1;min-width:0;border:0;border-radius:14px;background:var(--panel,#fff);box-shadow:inset 0 0 0 1px var(--line);padding:12px 14px;text-align:left;font:inherit;font-size:15px;color:var(--fg);display:flex;align-items:center;justify-content:space-between;gap:6px;cursor:pointer;border-left:5px solid var(--c)}.cbopt span{font-size:12px}.cbopt[aria-pressed=true]{background:var(--c);color:#fff;box-shadow:none}.cbv{flex:0 0 128px;display:flex;align-items:center;gap:4px;border-radius:14px;background:var(--panel,#fff);box-shadow:inset 0 0 0 1px var(--line);padding:0 10px;font-size:14px}.cbv span{color:var(--muted)}.cbv input{width:100%;min-width:0;border:0;background:none;font:inherit;font-size:16px;color:var(--fg);padding:10px 0;text-align:right}span.cbv{justify-content:flex-end}
 .finbars{display:flex;gap:10px;align-items:flex-end;height:140px;padding-top:8px}.finbars>div{flex:1;display:flex;gap:3px;align-items:flex-end;height:100%;position:relative;padding-bottom:18px}.finbars span{flex:1;min-height:2px;border-radius:5px 5px 0 0}.finbars small{position:absolute;bottom:0;left:0;right:0;text-align:center;font-size:11px;color:var(--mut,#8e8e93)}
 .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle}
 .chips{display:flex;gap:6px;flex-wrap:wrap}
@@ -654,7 +654,7 @@ const uid=()=>Math.random().toString(36).slice(2,9);
 const today=()=>{const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10)};
 const fmtDate=d=>{if(!d)return"";const[y,m,dd]=d.split("-");return`${dd}/${m}/${y}`};
 let toastT;function toast(m){let t=$(".toast");if(!t){t=document.createElement("div");t.className="toast";document.body.appendChild(t)}t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2600)}
-const APP_VER="3.2.1";
+const APP_VER="3.2.2";
 function remoteVer(){const base=location.protocol==="https:"?location.origin+location.pathname.replace(/[^/]*$/,""):"https://elysoon.github.io/orcamento-app/projeta/";
  return fetch(base+"versao.json?nc="+Date.now(),{cache:"no-store"}).then(r=>r.ok?r.json():null).then(j=>j&&j.v||"").catch(()=>"")}
 /* versão do GitHub: se a publicada for mais nova que a aberta, recarrega uma vez sem cache */
@@ -2994,8 +2994,8 @@ function colabView(B,c){const td=today();SF.cmon=SF.cmon||td.slice(0,7);SF.cday=
  for(let d=1;d<=dim;d++){const k=`${SF.cmon}-${String(d).padStart(2,"0")}`,x=(c.dias||{})[k];
   cells.push(`<button class="cd${k===td?" td":""}${k===SF.cday?" on":""}" data-cbd="${k}"><span>${d}</span>${x?`<i style="background:${CTIP[x.t].c};color:#fff">${CTIP[x.t].s}</i>`:""}</button>`)}
  const ms=colabSum(c,SF.cmon+"-01",SF.cmon+"-31"),sel=(c.dias||{})[SF.cday],ps=P?colabSum(c,P.ini,P.fim||td):null;
- const opt=t=>{const on=sel&&sel.t===t,v=on?sel.v:cVal(c,t),livre=t==="e"||t==="p";
-  return`<button class="cbopt" data-cbt="${t}" aria-pressed="${!!on}" style="--c:${CTIP[t].c}"><b>${CTIP[t].n}</b><span class="num">${livre&&!on?"digitar valor":brl(v)}</span></button>`};
+ const opt=t=>{const on=sel&&sel.t===t,v=on?sel.v:cVal(c,t);
+  return`<div class="cbrow" style="--c:${CTIP[t].c}"><button class="cbopt" data-cbt="${t}" aria-pressed="${!!on}"><b>${CTIP[t].n}</b>${on?`<span>marcado</span>`:""}</button>${t==="f"?`<span class="cbv num muted">R$ 0,00</span>`:`<label class="cbv"><span>R$</span><input class="num" data-cbv="${t}" value="${v?dec(v):""}" placeholder="0,00" inputmode="decimal" aria-label="Valor da ${CTIP[t].n.toLowerCase()}"></label>`}</div>`};
  B.innerHTML=`<button class="btn sm ghost" id="cv_bk" style="margin-bottom:10px">‹ Voltar</button>
  <div class="card stack" style="padding:16px;margin-bottom:12px"><div class="row" style="justify-content:space-between;flex-wrap:nowrap"><div><b style="font-size:20px">${esc(c.nome)}</b><br><span class="muted" style="font-size:13px">${esc(c.funcao||"Colaborador")} · diária ${brl(c.diaria||0)}</span></div><button class="btn sm" id="cv_ed">Editar</button></div>
  ${open?`<div style="background:color-mix(in srgb,#2e8b45 10%,transparent);border-radius:12px;padding:12px"><b style="color:#2e8b45">Trabalhando desde ${fmtDate(P.ini)}</b><br><span style="font-size:14px">${f1(ps.n)} diárias até hoje · <b>${brl(ps.tot)}</b></span></div><button class="btn pri" id="cv_fim">Finalizar e calcular pagamento</button>`
@@ -3003,7 +3003,7 @@ function colabView(B,c){const td=today();SF.cmon=SF.cmon||td.slice(0,7);SF.cday=
  <div class="card" style="padding:14px"><div class="row" style="justify-content:space-between;margin-bottom:10px"><button class="btn sm ghost" id="cv_p" aria-label="Mês anterior">‹</button><b style="font-size:17px">${cap1(first.toLocaleDateString("pt-BR",{month:"long",year:"numeric"}))}</b><button class="btn sm ghost" id="cv_n" aria-label="Próximo mês">›</button></div>
  <div class="calg">${["S","T","Q","Q","S","S","D"].map(x=>`<small>${x}</small>`).join("")}${cells.join("")}</div></div>
  <h3 style="margin:16px 0 4px;text-transform:capitalize">${new Date(SF.cday+"T12:00:00").toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"2-digit"})}</h3>
- <p class="muted" style="margin:0 0 10px;font-size:13px">${sel?(sel.auto?"Marcado sozinho como diária. Toque em outra opção para trocar.":"Toque em outra opção para trocar."):"O que ele fez neste dia?"}</p>
+ <p class="muted" style="margin:0 0 10px;font-size:13px">${sel?(sel.auto?"Marcado sozinho como diária.":"")+" Toque na opção para marcar. O valor ao lado pode ser alterado só para este dia.":"O que ele fez neste dia? Toque na opção; o valor ao lado pode ser alterado."}</p>
  <div class="cbgrid">${["d","m","e","p","v","f"].map(opt).join("")}</div>
  ${sel?`<button class="btn sm ghost" id="cv_clr" style="margin-top:8px">Desmarcar este dia</button>`:""}
  <div class="card" style="padding:14px;margin-top:16px"><div class="row" style="justify-content:space-between"><span class="muted">Neste mês</span><b class="num" style="font-size:18px">${brl(ms.tot)}</b></div><span class="muted" style="font-size:13px">${sumTxt(ms)}</span></div>
@@ -3013,8 +3013,9 @@ function colabView(B,c){const td=today();SF.cmon=SF.cmon||td.slice(0,7);SF.cday=
  const mv=k=>{const d=new Date(Y,M-1+k,1);SF.cmon=dISO(d).slice(0,7);vServices()};$("#cv_p").onclick=()=>mv(-1);$("#cv_n").onclick=()=>mv(1);
  B.querySelectorAll("[data-cbd]").forEach(b=>b.onclick=()=>{SF.cday=b.dataset.cbd;vServices()});
  const setDay=(t,v)=>{c.dias=c.dias||{};c.dias[SF.cday]={t,v};colabSave(c);vServices()};
- B.querySelectorAll("[data-cbt]").forEach(b=>b.onclick=()=>{const t=b.dataset.cbt;if(t==="e"||t==="p"){const k=modal(sheetHead(CTIP[t].n)+`<div class="stack">${fld("cb_val","Valor deste dia (R$)",sel&&sel.t===t?dec(sel.v):"")}<button class="btn pri" id="cb_vok">Salvar</button></div>`);wireClose(k);const i=$("#cb_val",k);i.setAttribute("inputmode","decimal");setTimeout(()=>i.focus(),50);
-   $("#cb_vok",k).onclick=()=>{const v=num(i.value);if(!(v>0)){toast("Digite o valor.");return}k.remove();setDay(t,v)}}else setDay(t,cVal(c,t))});
+ const valOf=t=>{const i=B.querySelector(`[data-cbv="${t}"]`);return i?num(i.value):0};
+ B.querySelectorAll("[data-cbt]").forEach(b=>b.onclick=()=>{const t=b.dataset.cbt,v=valOf(t);if(t!=="f"&&!(v>0)){const i=B.querySelector(`[data-cbv="${t}"]`);i.focus();toast(`Digite o valor da ${CTIP[t].n.toLowerCase()} ao lado.`);return}setDay(t,t==="f"?0:v)});
+ B.querySelectorAll("[data-cbv]").forEach(i=>{i.onfocus=()=>i.select();i.onchange=()=>{const t=i.dataset.cbv,v=num(i.value);const dk=SF.cday;if(sel&&sel.t===t&&v>0){c.dias[dk]={t,v};colabSave(c);toast(`${CTIP[t].n} de ${fmtDate(dk)}: ${brl(v)}`);setTimeout(()=>{if(tab==="servicos"&&SF.colab===c.id)vServices()},250)}}});
  if($("#cv_clr"))$("#cv_clr").onclick=()=>{delete c.dias[SF.cday];colabSave(c);vServices()};
  if($("#cv_ini_b"))$("#cv_ini_b").onclick=()=>{if(!(+c.diaria>0)){toast("Coloque o valor da diária em Editar.");return}
   const k=modal(sheetHead("Começou a trabalhar")+`<div class="stack"><div><label class="lbl" for="cv_ini">Dia que começou</label><input class="in-f" type="date" id="cv_ini" value="${SF.cday}"></div><div><span class="lbl">Trabalha</span><div class="chips"><button class="chip" data-wd="5" aria-pressed="true">Segunda a sexta</button><button class="chip" data-wd="6" aria-pressed="false">Segunda a sábado</button></div></div>
