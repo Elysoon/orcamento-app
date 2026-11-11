@@ -653,7 +653,7 @@ const uid=()=>Math.random().toString(36).slice(2,9);
 const today=()=>{const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10)};
 const fmtDate=d=>{if(!d)return"";const[y,m,dd]=d.split("-");return`${dd}/${m}/${y}`};
 let toastT;function toast(m){let t=$(".toast");if(!t){t=document.createElement("div");t.className="toast";document.body.appendChild(t)}t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2600)}
-const APP_VER="3.1.0";
+const APP_VER="3.2.0";
 function remoteVer(){const base=location.protocol==="https:"?location.origin+location.pathname.replace(/[^/]*$/,""):"https://elysoon.github.io/orcamento-app/projeta/";
  return fetch(base+"versao.json?nc="+Date.now(),{cache:"no-store"}).then(r=>r.ok?r.json():null).then(j=>j&&j.v||"").catch(()=>"")}
 /* versão do GitHub: se a publicada for mais nova que a aberta, recarrega uma vez sem cache */
@@ -2107,7 +2107,7 @@ let dl;async function saveFile(name,data){
 
 /* ================= DADOS DO APP DE ORÇAMENTO (fundidos) ================= */
 const CUR_SYM=["R$","US$","€"],CUR_LBL=["R$ (Brasil)","US$ (Dólar)","€ (Euro)"];
-const COLS=["clients","catalog","quotes","modelos","ordens","equip","certs","devcfg","notas","fin"];
+const COLS=["clients","catalog","quotes","modelos","ordens","equip","certs","devcfg","notas","fin","colab"];
 const UFS=Object.keys(MUN).sort();
 function initOrcData(){
  DB.col=DB.col||{};COLS.forEach(k=>DB.col[k]=DB.col[k]||[]);
@@ -2724,6 +2724,7 @@ function quotePages(q){
 
 /* ---------- novidades ---------- */
 const NEWS={feitos:[
+ ["Colaboradores e diárias","Em Serviços → Equipe: cadastro de cada colaborador com diária, meia diária e visita; calendário só dele com diária, meia diária, empreitada, produção, visita ou falta. Inicie as diárias e o app preenche sozinho os dias de trabalho; ao finalizar, mostra quantos dias trabalhou e quanto deve receber, e lança no financeiro.","Pedido seu"],
  ["Busca do código do serviço","Na emissão da NFS-e, digite o serviço (ex.: manutenção de computador) e escolha o código na lista oficial da NFS-e Nacional. Os CNAEs da ESM vêm da Receita pelo CNPJ.","Pedido seu"],
  ["Notas fiscais no app","Emita NFS-e (padrão nacional, obrigatório para MEI) e NF-e de produtos direto do orçamento, da OS ou de Empresa → Notas fiscais, pela Focus NFe. Acompanhe autorização, abra o PDF e o XML, mande no WhatsApp e cancele com justificativa.","Pedido seu"],
  ["Financeiro","Contas a receber e a pagar, baixa, vencidos, repetição mensal, DRE simplificada e gráfico de 6 meses. O orçamento aprovado vira entrada, parcelas e manutenção; o XML da nota de compra vira contas a pagar.","Pedido seu"],
@@ -2957,21 +2958,94 @@ function visitForm(day,ex){const v=ex||{data:day||today(),hora:"09:00",titulo:"V
   toast(`Visita agendada para ${fmtDate(o.data)} às ${o.hora}${o.avisos.length?` · aviso ${o.avisos.sort((a,b)=>b-a).map(avLbl).join(", ")} antes`:""}`)};
 }
 
+
+/* ================= NOVO (v3.2): colaboradores — diárias, calendário próprio e fechamento ================= */
+const CTIP={d:{n:"Diária",c:"#2e8b45",s:"D"},m:{n:"Meia diária",c:"#7cb342",s:"½"},e:{n:"Empreitada",c:"#0a64c8",s:"E"},p:{n:"Produção",c:"#7b4bc4",s:"P"},v:{n:"Visita",c:"#c77700",s:"V"},f:{n:"Falta",c:"#8e8e93",s:"F"}};
+const WDN=["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
+const colabs=()=>DB.col.colab||[];
+const dISO=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+const addD=(k,n)=>{const d=new Date(k+"T12:00:00");d.setDate(d.getDate()+n);return dISO(d)};
+const cVal=(c,t)=>t==="d"?+c.diaria||0:t==="m"?+c.meia||0:t==="v"?+c.visita||0:0;
+function colabSave(c){c.ts=Date.now();upsert("colab",c)}
+/* período aberto: preenche como diária inteira os dias de trabalho que ficaram sem marcação, até hoje */
+function colabAuto(c){const P=c.per;if(!P||P.fim)return false;const lim=today()<P.ini?null:today();if(!lim)return false;let ch=false;c.dias=c.dias||{};
+ for(let k=P.ini;k<=lim;k=addD(k,1)){const wd=new Date(k+"T12:00:00").getDay();if(!(P.wd||[1,2,3,4,5]).includes(wd))continue;if(!c.dias[k]){c.dias[k]={t:"d",v:+c.diaria||0,auto:1};ch=true}}
+ if(ch)colabSave(c);return ch}
+function colabSum(c,a,b){const L=Object.entries(c.dias||{}).filter(([k])=>k>=a&&k<=b);const by={};let tot=0,n=0;
+ L.forEach(([,x])=>{by[x.t]=(by[x.t]||0)+1;tot+=+x.v||0;if(x.t==="d")n+=1;else if(x.t==="m")n+=.5});return{by,tot,n,qt:L.length}}
+const sumTxt=s=>Object.keys(CTIP).filter(t=>s.by[t]).map(t=>`${s.by[t]} ${CTIP[t].n.toLowerCase()}${s.by[t]>1&&t!=="m"&&t!=="p"?"s":""}`).join(" · ")||"nenhum dia marcado";
+function vColabs(B){colabs().forEach(colabAuto);if(SF.colab){const c=colabs().find(x=>x.id===SF.colab);if(c)return colabView(B,c);SF.colab=null}
+ const L=colabs().slice().sort((a,b)=>(b.ativo!==false)-(a.ativo!==false)||norm(a.nome).localeCompare(norm(b.nome)));
+ B.innerHTML=`<div class="row" style="justify-content:space-between;margin-bottom:10px"><h3>Colaboradores</h3><button class="btn sm pri" id="cb_new">+ Colaborador</button></div>
+ <div class="camlist">${L.map(c=>{const P=c.per,s=P?colabSum(c,P.ini,P.fim||today()):null;return`<button class="camrow" data-cb="${c.id}" style="${c.ativo===false?"opacity:.55":""}"><span class="n" style="background:${P&&!P.fim?"#2e8b45":"var(--graf)"}">${esc((c.nome||"?").trim()[0]||"?").toUpperCase()}</span><span class="d"><b>${esc(c.nome)}</b><br><span class="muted">${esc(c.funcao||"")}${c.funcao?" · ":""}diária ${brl(c.diaria||0)}</span>${P&&!P.fim?`<br><span style="font-size:12.5px;color:#2e8b45">Trabalhando desde ${WDN[new Date(P.ini+"T12:00:00").getDay()].toLowerCase()} ${fmtDate(P.ini)} · ${f1(s.n)} diárias · ${brl(s.tot)}</span>`:""}</span></button>`}).join("")||`<div class="card"><p class="muted" style="margin:0">Cadastre seus ajudantes e técnicos para controlar diárias, meias diárias, empreitadas, produção e visitas.</p></div>`}</div>`;
+ $("#cb_new").onclick=()=>colabForm(null);B.querySelectorAll("[data-cb]").forEach(b=>b.onclick=()=>{SF.colab=+b.dataset.cb||b.dataset.cb;SF.cday=today();SF.cmon=today().slice(0,7);vServices();scrollTo(0,0)})}
+function colabForm(ex,done){const v=Object.assign({nome:"",tel:"",cpf:"",pix:"",funcao:"",diaria:0,meia:0,visita:0,obs:"",ativo:true},ex||{});
+ const m=modal(sheetHead(ex?"Editar colaborador":"Novo colaborador")+`<div class="stack">${fld("cb_n","Nome",v.nome)}<div class="grid2">${fld("cb_f","Função (ex.: ajudante, técnico)",v.funcao)}${fld("cb_t","Telefone / WhatsApp",v.tel)}${fld("cb_c","CPF (opcional)",v.cpf)}${fld("cb_p","Chave Pix (opcional)",v.pix)}</div>
+ <div><span class="lbl">Valores combinados</span><div class="grid2">${fld("cb_d","Diária inteira (R$)",v.diaria?dec(v.diaria):"")}${fld("cb_m","Meia diária (R$)",v.meia?dec(v.meia):"")}${fld("cb_v","Visita (R$)",v.visita?dec(v.visita):"")}</div><span class="muted" style="font-size:12.5px">Empreitada e produção você informa o valor no dia.</span></div>
+ ${area("cb_o","Observações",v.obs,2)}${ex?`<label class="chk"><input type="checkbox" id="cb_a" ${v.ativo!==false?"checked":""}>Colaborador ativo</label>`:""}
+ <div class="row" style="justify-content:space-between">${ex?`<button class="btn ghost" id="cb_x">Excluir</button>`:"<span></span>"}<button class="btn pri" id="cb_s">Salvar</button></div></div>`);wireClose(m);
+ $("#cb_s",m).onclick=()=>{const n=$("#cb_n",m).value.trim();if(!n){toast("Informe o nome.");return}
+  const c=Object.assign({},ex||{id:newId("colab"),dias:{},hist:[]},{nome:n,funcao:$("#cb_f",m).value.trim(),tel:$("#cb_t",m).value.trim(),cpf:$("#cb_c",m).value.trim(),pix:$("#cb_p",m).value.trim(),diaria:num($("#cb_d",m).value),meia:num($("#cb_m",m).value),visita:num($("#cb_v",m).value),obs:$("#cb_o",m).value.trim(),ativo:$("#cb_a",m)?$("#cb_a",m).checked:true});
+  colabSave(c);m.remove();toast("Colaborador salvo");if(done)done(c);else vServices()};
+ if($("#cb_x",m))$("#cb_x",m).onclick=()=>confirmSheet("Excluir colaborador?",`${v.nome} e todo o histórico de dias serão apagados.`,"Excluir",()=>{removeRec("colab",ex.id);SF.colab=null;m.remove();vServices()})}
+function colabView(B,c){const td=today();SF.cmon=SF.cmon||td.slice(0,7);SF.cday=SF.cday||td;const [Y,M]=SF.cmon.split("-").map(Number),first=new Date(Y,M-1,1),dim=new Date(Y,M,0).getDate(),off=(first.getDay()+6)%7;
+ const P=c.per,open=P&&!P.fim,cells=[];for(let i=0;i<off;i++)cells.push(`<span></span>`);
+ for(let d=1;d<=dim;d++){const k=`${SF.cmon}-${String(d).padStart(2,"0")}`,x=(c.dias||{})[k],inP=P&&k>=P.ini&&k<=(P.fim||td);
+  cells.push(`<button class="cd${k===td?" td":""}${k===SF.cday?" on":""}" data-cbd="${k}" style="${inP&&k!==SF.cday?"box-shadow:inset 0 0 0 1.5px color-mix(in srgb,#2e8b45 45%,transparent)":""}"><span>${d}</span>${x?`<i style="background:${CTIP[x.t].c};color:#fff">${CTIP[x.t].s}</i>`:""}</button>`)}
+ const ms=colabSum(c,SF.cmon+"-01",SF.cmon+"-31"),sel=(c.dias||{})[SF.cday],ps=P?colabSum(c,P.ini,P.fim||td):null;
+ const opt=t=>{const v=cVal(c,t),on=sel&&sel.t===t;return`<button class="camrow" data-cbt="${t}" style="${on?"box-shadow:0 0 0 2px "+CTIP[t].c:""}"><span class="n" style="background:${CTIP[t].c};font-size:13px">${CTIP[t].s}</span><span class="d"><b>${CTIP[t].n}</b>${t==="e"||t==="p"?`<br><span class="muted" style="font-size:12.5px">valor do dia</span>`:""}</span>${t==="e"||t==="p"?`<input class="in-f num" data-cbv="${t}" value="${on?dec(sel.v):""}" placeholder="R$" style="width:110px" inputmode="decimal">`:`<b class="num">${t==="f"?"R$ 0,00":brl(v)}</b>`}</button>`};
+ B.innerHTML=`<div class="row" style="justify-content:space-between;margin-bottom:12px"><button class="btn sm ghost" id="cv_bk">‹ Colaboradores</button><button class="btn sm" id="cv_ed">Editar dados</button></div>
+ <div class="card" style="padding:14px;margin-bottom:12px"><div class="row" style="justify-content:space-between;flex-wrap:nowrap"><div><b style="font-size:19px">${esc(c.nome)}</b><br><span class="muted" style="font-size:13px">${esc(c.funcao||"Colaborador")} · diária ${brl(c.diaria||0)} · meia ${brl(c.meia||0)}${c.visita?" · visita "+brl(c.visita):""}</span></div>${c.tel?`<button class="btn sm" id="cv_wa">WhatsApp</button>`:""}</div></div>
+ ${open?`<div class="card stack" style="padding:14px;margin-bottom:12px;border-left:4px solid #2e8b45"><b>Trabalhando desde ${WDN[new Date(P.ini+"T12:00:00").getDay()].toLowerCase()}, ${fmtDate(P.ini)}</b><span class="muted" style="font-size:13px">${sumTxt(ps)} · total até hoje <b style="color:var(--fg)">${brl(ps.tot)}</b></span><span class="muted" style="font-size:12px">Dias de trabalho sem marcação entram sozinhos como diária inteira (${(P.wd||[1,2,3,4,5]).length===6?"seg a sáb":"seg a sex"}). Mude qualquer dia tocando nele.</span><div class="row"><button class="btn pri" id="cv_fim">Finalizar diárias</button><button class="btn sm ghost" id="cv_can">Cancelar período</button></div></div>`
+ :`<div class="card stack" style="padding:14px;margin-bottom:12px"><b>Começar a trabalhar</b><div class="grid2"><div><label class="lbl" for="cv_ini">Começou em</label><input class="in-f" type="date" id="cv_ini" value="${SF.cday}"></div><div><label class="lbl" for="cv_wd">Dias de trabalho</label><select class="in-f" id="cv_wd"><option value="5">Segunda a sexta</option><option value="6">Segunda a sábado</option></select></div></div><button class="btn pri" id="cv_ini_b" style="align-self:flex-start">Iniciar diárias</button></div>`}
+ <div class="card" style="padding:14px"><div class="row" style="justify-content:space-between;margin-bottom:10px"><button class="btn sm ghost" id="cv_p" aria-label="Mês anterior">‹</button><b style="font-size:17px">${cap1(first.toLocaleDateString("pt-BR",{month:"long",year:"numeric"}))}</b><button class="btn sm ghost" id="cv_n" aria-label="Próximo mês">›</button></div>
+ <div class="calg">${["S","T","Q","Q","S","S","D"].map(x=>`<small>${x}</small>`).join("")}${cells.join("")}</div>
+ <div class="row" style="gap:10px;font-size:12px;margin-top:10px;justify-content:center">${Object.values(CTIP).map(x=>`<span><i class="dot" style="background:${x.c}"></i>${x.n}</span>`).join("")}</div></div>
+ <h3 style="margin:16px 0 8px;text-transform:capitalize">${new Date(SF.cday+"T12:00:00").toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long"})}${sel&&sel.auto?` <span class="muted" style="font-size:12px;text-transform:none">· preenchido automaticamente</span>`:""}</h3>
+ <div class="camlist">${["d","m","e","p","v","f"].map(opt).join("")}</div>
+ <div class="row" style="margin-top:8px">${sel?`<button class="btn sm ghost" id="cv_clr">Limpar este dia</button>`:""}</div>
+ <div class="tot" style="margin:16px 0 12px"><div><small>Diárias no mês</small><b class="num">${f1(ms.n)}</b></div><div><small>Dias marcados</small><b class="num">${ms.qt}</b></div><div class="big"><small>A receber no mês</small><b class="num">${brl(ms.tot)}</b></div></div>
+ <p class="muted" style="margin:0 0 12px;font-size:13px">${sumTxt(ms)}</p>
+ ${(c.hist||[]).length?`<h3 style="margin:8px 0">Fechamentos</h3><div class="camlist">${c.hist.slice().reverse().map((h,i)=>`<div class="camrow"><span class="d"><b>${fmtDate(h.ini)} a ${fmtDate(h.fim)}</b><br><span class="muted">${esc(h.txt||"")}</span></span><span style="text-align:right"><b class="num">${brl(h.tot)}</b><br>${h.pago?`<span style="font-size:12px;color:#2e8b45">Pago ${fmtDate(h.pago)}</span>`:`<button class="btn sm" data-cbpg="${c.hist.length-1-i}">Marcar pago</button>`}</span></div>`).join("")}</div>`:""}`;
+ $("#cv_bk").onclick=()=>{SF.colab=null;vServices()};$("#cv_ed").onclick=()=>colabForm(c,()=>vServices());
+ if($("#cv_wa"))$("#cv_wa").onclick=()=>{const ph=onlyNum(c.tel);openLink(`https://wa.me/${ph.startsWith("55")?ph:"55"+ph}`)};
+ const mv=k=>{const d=new Date(Y,M-1+k,1);SF.cmon=dISO(d).slice(0,7);vServices()};$("#cv_p").onclick=()=>mv(-1);$("#cv_n").onclick=()=>mv(1);
+ B.querySelectorAll("[data-cbd]").forEach(b=>b.onclick=()=>{SF.cday=b.dataset.cbd;vServices()});
+ const setDay=(t,v)=>{c.dias=c.dias||{};c.dias[SF.cday]={t,v};colabSave(c);vServices()};
+ B.querySelectorAll("[data-cbt]").forEach(b=>b.onclick=e=>{if(e.target.matches("input"))return;const t=b.dataset.cbt;if(t==="e"||t==="p"){const i=b.querySelector("input");const v=num(i.value);if(!(v>0)){i.focus();toast(`Digite o valor da ${CTIP[t].n.toLowerCase()} e toque de novo.`);return}setDay(t,v)}else setDay(t,cVal(c,t))});
+ B.querySelectorAll("[data-cbv]").forEach(i=>i.onchange=()=>{const v=num(i.value);if(v>0)setDay(i.dataset.cbv,v)});
+ if($("#cv_clr"))$("#cv_clr").onclick=()=>{delete c.dias[SF.cday];colabSave(c);vServices()};
+ if($("#cv_ini_b"))$("#cv_ini_b").onclick=()=>{const ini=$("#cv_ini").value||td;if(!(+c.diaria>0)){toast("Informe o valor da diária em Editar dados.");return}c.per={ini,wd:$("#cv_wd").value==="6"?[1,2,3,4,5,6]:[1,2,3,4,5]};colabAuto(c);colabSave(c);toast(`Diárias de ${c.nome} iniciadas em ${fmtDate(ini)}`);vServices()};
+ if($("#cv_can"))$("#cv_can").onclick=()=>confirmSheet("Cancelar período?","Os dias preenchidos automaticamente deste período serão apagados. Os que você marcou ficam.","Cancelar período",()=>{Object.keys(c.dias||{}).forEach(k=>{if(k>=P.ini&&c.dias[k].auto)delete c.dias[k]});delete c.per;colabSave(c);vServices()});
+ if($("#cv_fim"))$("#cv_fim").onclick=()=>colabClose(c);
+ B.querySelectorAll("[data-cbpg]").forEach(b=>b.onclick=()=>{const h=c.hist[+b.dataset.cbpg];h.pago=today();if(h.fin){const x=(DB.col.fin||[]).find(y=>y.id===h.fin);if(x)upsert("fin",Object.assign({},x,{pago:today()}))}colabSave(c);toast("Pagamento registrado");vServices()})}
+function colabClose(c){const P=c.per,td=today();const m=modal(sheetHead("Finalizar diárias")+`<div class="stack"><div class="grid2"><div><label class="lbl" for="cc_f">Último dia trabalhado</label><input class="in-f" type="date" id="cc_f" value="${td<P.ini?P.ini:td}" min="${P.ini}"></div></div><div id="cc_r"></div>
+ <label class="chk"><input type="checkbox" id="cc_fin" checked>Lançar em contas a pagar (Financeiro)</label><label class="chk"><input type="checkbox" id="cc_pg">Já paguei</label>
+ <div class="row" style="justify-content:flex-end"><button class="btn pri" id="cc_ok">Finalizar</button></div></div>`);wireClose(m);
+ const calc=()=>{const fim=$("#cc_f",m).value||td;const tmp=JSON.parse(JSON.stringify(c));tmp.per.fim=null;
+  for(let k=P.ini;k<=fim;k=addD(k,1)){const wd=new Date(k+"T12:00:00").getDay();if((P.wd||[1,2,3,4,5]).includes(wd)&&!tmp.dias[k])tmp.dias[k]={t:"d",v:+c.diaria||0,auto:1}}
+  Object.keys(tmp.dias).forEach(k=>{if(k>fim&&k>=P.ini&&tmp.dias[k].auto)delete tmp.dias[k]});return{tmp,fim,s:colabSum(tmp,P.ini,fim)}};
+ const draw=()=>{const{fim,s}=calc();$("#cc_r",m).innerHTML=`<div class="tot"><div><small>Dias trabalhados</small><b class="num">${s.qt-(s.by.f||0)}</b></div><div><small>Diárias</small><b class="num">${f1(s.n)}</b></div><div class="big"><small>Total a receber</small><b class="num">${brl(s.tot)}</b></div></div><p class="muted" style="margin:8px 0 0;font-size:13px">${fmtDate(P.ini)} a ${fmtDate(fim)} · ${sumTxt(s)}</p>`};draw();$("#cc_f",m).onchange=draw;
+ $("#cc_ok",m).onclick=()=>{const{tmp,fim,s}=calc();c.dias=tmp.dias;const h={ini:P.ini,fim,tot:s.tot,txt:sumTxt(s),pago:$("#cc_pg",m).checked?td:""};
+  if($("#cc_fin",m).checked&&s.tot>0){const f={id:newId("fin"),tipo:"p",desc:`Diárias · ${c.nome} (${fmtDate(P.ini)} a ${fmtDate(fim)})`,valor:s.tot,venc:fim,cat:"Salários e ajudantes",forma:"Pix",pago:h.pago,colabId:c.id};upsert("fin",f);h.fin=f.id}
+  c.hist=[...(c.hist||[]),h];delete c.per;colabSave(c);m.remove();toast(`${c.nome}: ${s.qt-(s.by.f||0)} dias · ${brl(s.tot)}`);vServices()}}
+
 /* ================= ABA SERVIÇOS: agenda e ordens de serviço ================= */
 const OST={agendada:{n:"Agendada",c:"#0a64c8"},andamento:{n:"Em andamento",c:"#c77700"},concluida:{n:"Concluída",c:"#2e8b45"},cancelada:{n:"Cancelada",c:"#8e8e93"}};
 const osPill=s=>`<span class="qst" style="--c:${OST[s].c}">${OST[s].n}</span>`;
 let SF={view:"cal",open:null,tec:"",search:"",st:"todas"};
-function equipe(){return String(DB.company.equipe||"").split(/\n|,/).map(x=>x.trim()).filter(Boolean)}
+function equipe(){const a=String(DB.company.equipe||"").split(/\n|,/).map(x=>x.trim()).filter(Boolean);(DB.col.colab||[]).filter(c=>c.ativo!==false&&c.nome).forEach(c=>{if(!a.some(x=>norm(x)===norm(c.nome)))a.push(c.nome)});return a}
 function vServices(){
  if(SF.open)return osForm(SF.open);
  const os=DB.col.ordens,td=today();const pes=os.filter(o=>o.pesq&&o.pesq.nota);const avg=pes.length?pes.reduce((a,o)=>a+o.pesq.nota,0)/pes.length:0;
  $("#main").innerHTML=`<section class="view gut"><div class="wrapc">
  <div class="hero"><div><h2>Serviços ${NEW}</h2><p>Agenda da equipe, ordens de serviço com checklist, fotos, assinatura e pesquisa de satisfação.</p></div><button class="btn pri" id="s_new">+ Agendar visita</button></div>
  <div class="tot" style="margin-bottom:14px"><div><small>Hoje</small><b class="num">${os.filter(o=>o.data===td&&o.status!=="cancelada").length}</b></div><div><small>Agendadas</small><b class="num">${os.filter(o=>o.status==="agendada").length}</b></div><div><small>Em andamento</small><b class="num">${os.filter(o=>o.status==="andamento").length}</b></div><div class="big"><small>Satisfação (${pes.length})</small><b class="num">${pes.length?avg.toFixed(1).replace(".",",")+" ★":"—"}</b></div></div>
- <div class="seg" style="max-width:420px;grid-template-columns:repeat(3,1fr);margin-bottom:14px"><button data-sv="cal" aria-pressed="${SF.view==="cal"}">Calendário</button><button data-sv="agenda" aria-pressed="${SF.view==="agenda"}">Agenda</button><button data-sv="ordens" aria-pressed="${SF.view==="ordens"}">Ordens</button></div>
+ <div class="seg" style="max-width:520px;grid-template-columns:repeat(4,1fr);margin-bottom:14px"><button data-sv="cal" aria-pressed="${SF.view==="cal"}">Calendário</button><button data-sv="agenda" aria-pressed="${SF.view==="agenda"}">Agenda</button><button data-sv="ordens" aria-pressed="${SF.view==="ordens"}">Ordens</button><button data-sv="equipe" aria-pressed="${SF.view==="equipe"}">Equipe</button></div>
  <div id="s_body"></div></div></section>`;
- document.querySelectorAll("[data-sv]").forEach(b=>b.onclick=()=>{SF.view=b.dataset.sv;vServices()});$("#s_new").onclick=()=>visitForm(SF.day||today());
+ document.querySelectorAll("[data-sv]").forEach(b=>b.onclick=()=>{SF.view=b.dataset.sv;SF.colab=null;vServices()});$("#s_new").onclick=()=>visitForm(SF.day||today());
  const B=$("#s_body"),card=o=>`<button class="camrow" data-os="${o.id}"><span class="n" style="background:${OST[o.status].c};width:auto;border-radius:9px;padding:0 8px;font-size:12px">${esc(o.hora||"--:--")}</span><span class="d"><b>${esc(o.cliente||"Sem cliente")}</b><br><span class="muted">${o.num?"OS "+esc(o.num)+" · ":""}${esc(o.titulo||"")}${o.tecnico?" · "+esc(o.tecnico):""}</span></span>${osPill(o.status)}</button>`;
+ if(SF.view==="equipe"){vColabs(B);return}
  if(SF.view==="cal"){calView(B,os,card);B.querySelectorAll("[data-os]").forEach(b=>b.onclick=()=>openOS(os.find(x=>String(x.id)===b.dataset.os)));checkSurveys();return}
  if(SF.view==="agenda"){const eq=equipe();const f=os.filter(o=>o.status!=="cancelada"&&(!SF.tec||o.tecnico===SF.tec));
   const late=f.filter(o=>o.data&&o.data<td&&o.status!=="concluida"),up=f.filter(o=>o.data&&o.data>=td).sort((a,b)=>(a.data+a.hora).localeCompare(b.data+b.hora)),nod=f.filter(o=>!o.data&&o.status!=="concluida");
@@ -3563,6 +3637,6 @@ if(authAllowed()){enterApp()}else{render();showLogin()}
 window.addEventListener("online",()=>{if(authCloud()&&DB.dirty)runSync(false)});
 // botão Voltar do Android: fecha janela aberta, sai do formulário/projeto e volta para Projetos
 window.__back=()=>{const m=[...document.querySelectorAll(".modal")].pop();if(m){m.remove();return true}if($("#login"))return false;
- if(tab==="orcamentos"&&QF.open){QF.open=false;render();return true}if(tab==="servicos"&&SF.open){SF.open=null;render();return true}if(tab==="projetos"&&inProj){if(saveT)saveNow();inProj=false;render();return true}if(tab!=="projetos"){setTab("projetos");return true}return false};
+ if(tab==="orcamentos"&&QF.open){QF.open=false;render();return true}if(tab==="servicos"&&SF.open){SF.open=null;render();return true}if(tab==="servicos"&&SF.colab){SF.colab=null;render();return true}if(tab==="projetos"&&inProj){if(saveT)saveNow();inProj=false;render();return true}if(tab!=="projetos"){setTab("projetos");return true}return false};
 </script>
 </body></html>
