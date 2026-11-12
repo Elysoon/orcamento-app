@@ -629,8 +629,7 @@ const docTitle=()=>S.type==="relatorio"?rTipo().t:S.type==="projeto"&&isSeg()?"P
 const LAYOUTS={
  exec:{n:"Executivo",d:"Capa escura da marca, cabeçalho grafite com faixa vermelha."},
  classic:{n:"Clássico",d:"Capa clara centralizada, só linhas finas. Visual de relatório formal."},
- min:{n:"Compacto",d:"Sem capa, tabelas enxutas. Menos páginas para envio rápido."},
- bold:{n:"Impactante",d:"Faixa grande na cor da empresa, tabela escura e total em destaque."}
+ min:{n:"Compacto",d:"Sem capa, tabelas enxutas. Menos páginas para envio rápido."}
 };
 const BITRATE={1:768,2:1280,4:2048,5:2560,8:4096}; // kbps H.265 @15fps
 const PRICE_DEF={
@@ -654,7 +653,7 @@ const uid=()=>Math.random().toString(36).slice(2,9);
 const today=()=>{const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10)};
 const fmtDate=d=>{if(!d)return"";const[y,m,dd]=d.split("-");return`${dd}/${m}/${y}`};
 let toastT;function toast(m){let t=$(".toast");if(!t){t=document.createElement("div");t.className="toast";document.body.appendChild(t)}t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2600)}
-const APP_VER="3.3.2";
+const APP_VER="3.4.0";
 function remoteVer(){const base=location.protocol==="https:"?location.origin+location.pathname.replace(/[^/]*$/,""):"https://elysoon.github.io/orcamento-app/projeta/";
  return fetch(base+"versao.json?nc="+Date.now(),{cache:"no-store"}).then(r=>r.ok?r.json():null).then(j=>j&&j.v||"").catch(()=>"")}
 /* versão do GitHub: se a publicada for mais nova que a aberta, recarrega uma vez sem cache */
@@ -725,7 +724,7 @@ function floorize(p){if(!p.floors){p.floors=[{id:uid(),name:"Térreo",plan:p.pla
 const pCams=p=>p.floors?p.floors.flatMap(f=>f.cams):(p.cams||[]);
 const allCams=()=>S.floors.flatMap(f=>f.cams);
 const floorOf=c=>S.floors.find(f=>f.cams.includes(c))||S.floors[S.fi];
-function migrate(p){floorize(p);pCams(p).forEach(c=>{if(!LIB.find(l=>l.id===c.lib))c.lib=OLDIDS[c.lib]||LIB[0].id});if(!LIB.find(l=>l.id===p.cfg.defLib))p.cfg.defLib=OLDIDS[p.cfg.defLib]||LIB[0].id;p.desc=p.desc||{};p.cfg.layers=p.cfg.layers||{dori:true,cables:true,labels:true,walls:true};p.prices=p.prices||{};p.qty=p.qty||{};p.extra=p.extra||[]}
+function migrate(p){if(p&&p.layout==="bold")p.layout="exec";floorize(p);pCams(p).forEach(c=>{if(!LIB.find(l=>l.id===c.lib))c.lib=OLDIDS[c.lib]||LIB[0].id});if(!LIB.find(l=>l.id===p.cfg.defLib))p.cfg.defLib=OLDIDS[p.cfg.defLib]||LIB[0].id;p.desc=p.desc||{};p.cfg.layers=p.cfg.layers||{dori:true,cables:true,labels:true,walls:true};p.prices=p.prices||{};p.qty=p.qty||{};p.extra=p.extra||[]}
 let saveT;
 const hhmm=t=>new Date(t).toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
 const docKind=p=>p.type==="relatorio"?"Relatório":p.type==="proposta"?"Proposta":"Projeto";
@@ -2116,6 +2115,8 @@ function initOrcData(){
  DB.col=DB.col||{};COLS.forEach(k=>DB.col[k]=DB.col[k]||[]);
  DB.del=DB.del||{};[...COLS,"projetos","cameras"].forEach(k=>DB.del[k]=DB.del[k]||[]);
  DB.opt=Object.assign({ask:true,lines:true,noseq:false,cur:0},DB.opt||{});
+ /* modelo "Impactante" removido: quem usava passa para o Executivo */
+ if(DB.opt.qlay==="bold")DB.opt.qlay="exec";Object.values(DB.projects||{}).forEach(p=>{if(p.layout==="bold")p.layout="exec"});["quotes","certs"].forEach(k=>(DB.col[k]||[]).forEach(o=>{if(o.layout==="bold")o.layout="exec"}));
  DB.qseq=DB.qseq||0;DB.oseq=DB.oseq||0;DB.cfgTs=DB.cfgTs||0;DB.logoTs=DB.logoTs||0;
  for(const k in COMPANY_DEF)if(DB.company[k]===undefined)DB.company[k]=COMPANY_DEF[k];
  if(DB.items&&DB.items.length){DB.items.forEach(i=>DB.col.catalog.push({id:newId("catalog"),nome:i.desc,preco:+i.price||0,un:i.unit||"un",tipo:i.grp==="Serviços"?"s":"i",ts:Date.now()}));DB.items=[]}
@@ -2727,6 +2728,8 @@ function quotePages(q){
 
 /* ---------- novidades ---------- */
 const NEWS={feitos:[
+ ["Importar contatos","Em Clientes: traga todos os contatos do celular (ou um arquivo .vcf). O app junta números repetidos (com ou sem +55, 0 ou 9), separa os que já são clientes e mostra a análise antes de salvar. Também acha clientes repetidos e junta com orçamentos, OS e equipamentos.","Pedido seu"],
+ ["Modelo Impactante removido","Quem usava passa para o Executivo.","Pedido seu"],
  ["OS de vários dias com a equipe","Na ordem de serviço: começa em / termina em e quem da equipe trabalha nela. Cada dia entra como diária no calendário do colaborador, ligado à OS, e a OS aparece em todos os dias no calendário.","Pedido seu"],
  ["Vales e acerto","Na Equipe: parar os dias de trabalho no dia certo, registrar o dinheiro que o colaborador já pegou e fazer o acerto descontando os vales.","Pedido seu"],
  ["Colaboradores e diárias","Em Serviços → Equipe: cadastro de cada colaborador com diária, meia diária e visita; calendário só dele com diária, meia diária, empreitada, produção, visita ou falta. Inicie as diárias e o app preenche sozinho os dias de trabalho; ao finalizar, mostra quantos dias trabalhou e quanto deve receber, e lança no financeiro.","Pedido seu"],
@@ -3179,14 +3182,84 @@ function setTheme(t){try{localStorage.setItem("esmp.theme",t)}catch(_){}applyThe
 
 /* ================= ABA CLIENTES ================= */
 let CF={search:""};
+
+/* ================= NOVO (v3.4): importar contatos do celular e analisar duplicados ================= */
+/* chave do telefone: só dígitos, sem +55 e sem 0 de operadora; celular antigo de 8 dígitos ganha o 9; número sem DDD usa o DDD da empresa (só para comparar) */
+const myDDD=()=>{const d=onlyNum(DB.company.phone);const x=d.startsWith("55")&&d.length>=12?d.slice(2):d;return x.length>=10?x.slice(0,2):"91"};
+function telKey(t){let d=onlyNum(t);if(!d)return"";if(d.length>=12&&d.startsWith("55"))d=d.slice(2);if(d.length===11&&d[0]==="0")d=d.slice(1);if(d.length>11&&d.startsWith("0"))d=d.replace(/^0+/,"").slice(-11);
+ if(d.length===8||d.length===9)d=myDDD()+d;if(d.length===10&&/[6-9]/.test(d[2]))d=d.slice(0,2)+"9"+d.slice(2);return d.length>=10?d:""}
+const telFmt=k=>k.length===11?`(${k.slice(0,2)}) ${k.slice(2,7)}-${k.slice(7)}`:k.length===10?`(${k.slice(0,2)}) ${k.slice(2,6)}-${k.slice(6)}`:k;
+const nameKey=n=>norm(n).replace(/[^a-z0-9 ]/g," ").replace(/\s+/g," ").trim();
+const cliTels=c=>[c.tel,...(c.tels||[])].map(telKey).filter(Boolean);
+function parseVCF(txt){const out=[];txt=txt.replace(/\r\n/g,"\n").replace(/\n[ \t]/g,"");/* desdobra linhas */
+ const qp=v=>{try{return decodeURIComponent(v.replace(/=\n/g,"").replace(/=([0-9A-F]{2})/gi,"%$1"))}catch(_){return v}};
+ txt.split(/BEGIN:VCARD/i).slice(1).forEach(b=>{const o={n:"",tels:[],emails:[]};b.split("\n").forEach(l=>{const i=l.indexOf(":");if(i<0)return;const k=l.slice(0,i).toUpperCase(),raw=l.slice(i+1).trim(),v=/QUOTED-PRINTABLE/.test(k)?qp(raw):raw;
+  if(/^FN\b|^FN;/.test(k))o.n=v.replace(/\\,/g,",").replace(/\\;/g,";");else if(/^N\b|^N;/.test(k)&&!o.n)o.n=v.split(";").filter(Boolean).reverse().join(" ");else if(/^(ITEM\d+\.)?TEL/.test(k))o.tels.push(v);else if(/^(ITEM\d+\.)?EMAIL/.test(k))o.emails.push(v)});if(o.n||o.tels.length)out.push(o)});return out}
+/* junta os contatos do celular que têm o mesmo número ou e-mail (duplicados dentro da agenda) */
+function groupContacts(list){const par=list.map((_,i)=>i),f=i=>par[i]===i?i:(par[i]=f(par[i])),u=(a,b)=>{a=f(a);b=f(b);if(a!==b)par[b]=a};const seen={};
+ list.forEach((c,i)=>{[...c.tels.map(t=>"t"+telKey(t)),...c.emails.map(e=>"e"+e.toLowerCase().trim())].filter(k=>k.length>3).forEach(k=>{if(seen[k]!=null)u(seen[k],i);else seen[k]=i})});
+ const g={};list.forEach((c,i)=>{(g[f(i)]=g[f(i)]||[]).push(c)});
+ return Object.values(g).map(arr=>{const tk=[...new Set(arr.flatMap(c=>c.tels.map(telKey)).filter(Boolean))],em=[...new Set(arr.flatMap(c=>c.emails.map(e=>e.toLowerCase().trim())).filter(Boolean))];
+  const n=arr.map(c=>c.n.trim()).filter(Boolean).sort((a,b)=>b.length-a.length)[0]||(tk[0]?telFmt(tk[0]):"Sem nome");return{n,tels:tk,emails:em,dup:arr.length}})}
+function contactsImport(){const m=modal(sheetHead("Importar contatos")+`<div class="stack">
+ <button class="camrow" id="ci_ph"><span class="n" style="background:var(--graf)">☎</span><span class="d"><b>Todos os contatos do celular</b><br><span class="muted">O app pede permissão para ler a agenda.</span></span></button>
+ <button class="camrow" id="ci_vf"><span class="n" style="background:var(--graf)">⇪</span><span class="d"><b>Arquivo de contatos (.vcf)</b><br><span class="muted">No app Contatos: Configurações → Exportar → arquivo .vcf.</span></span></button>
+ <input type="file" id="ci_f" accept=".vcf,text/vcard,text/x-vcard" multiple hidden>
+ <p class="muted" style="margin:0;font-size:12.5px">Nada entra direto: você vê a análise (novos, repetidos e já cadastrados) e escolhe o que salvar. Os contatos não saem do seu celular, só vão para a sua lista de clientes.</p></div>`);wireClose(m);
+ $("#ci_ph",m).onclick=()=>{if(!(window.ESMAndroid&&ESMAndroid.contacts)){toast(window.ESMAndroid?"Para ler a agenda direto, compile o app de novo (git pull + ▶). Por enquanto use o arquivo .vcf.":"No navegador, use o arquivo .vcf.");return}
+  window.__contactsDone=(b64,denied)=>{window.__contactsDone=null;if(denied){toast("Permissão de contatos negada. Libere em Configurações do Android → Apps → ESM Projeta → Permissões.");return}
+   let L=[];try{L=JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(b64||""),c=>c.charCodeAt(0)))||"[]")}catch(_){}if(!L.length){toast("Nenhum contato encontrado.");return}m.remove();contactsReview(L)};
+  toast("Lendo contatos…");ESMAndroid.contacts()};
+ $("#ci_vf",m).onclick=()=>$("#ci_f",m).click();
+ $("#ci_f",m).onchange=async e=>{let L=[];for(const f of e.target.files)L=L.concat(parseVCF(await f.text()));if(!L.length){toast("Não achei contatos nesse arquivo.");return}m.remove();contactsReview(L)}}
+function contactsReview(raw){const G=groupContacts(raw.map(c=>({n:String(c.n||""),tels:(c.tels||[]).map(String),emails:(c.emails||[]).map(String)})));
+ const byTel={},byName={};DB.col.clients.forEach(c=>{cliTels(c).forEach(k=>byTel[k]=c);const nk=nameKey(c.nome);if(nk)(byName[nk]=byName[nk]||[]).push(c)});
+ const R={novo:[],existe:[],nome:[],semtel:[]};const newNames={};
+ G.forEach(g=>{const ex=g.tels.map(k=>byTel[k]).find(Boolean);if(ex){g.ex=ex;R.existe.push(g);return}if(!g.tels.length){R.semtel.push(g);return}
+  const nk=nameKey(g.n);if(byName[nk]){g.same=byName[nk][0];R.nome.push(g);return}g.on=true;R.novo.push(g);(newNames[nk]=newNames[nk]||[]).push(g)});
+ const dupIn=G.filter(g=>g.dup>1).length,repN=Object.values(newNames).filter(a=>a.length>1).length;
+ const sec=(k,t,sub,chk)=>R[k].length?`<details ${k==="novo"||k==="nome"?"open":""} class="card" style="padding:12px"><summary style="cursor:pointer"><b>${t} (${R[k].length})</b><br><span class="muted" style="font-size:12.5px">${sub}</span></summary>
+  ${chk?`<div class="row" style="margin:8px 0"><button class="btn sm ghost" data-cia="${k}">Marcar todos</button><button class="btn sm ghost" data-cin="${k}">Desmarcar todos</button></div>`:""}
+  <div class="camlist" style="margin-top:6px">${R[k].slice(0,1500).map((g,i)=>`<label class="camrow" style="cursor:${chk?"pointer":"default"}">${chk?`<input type="checkbox" data-cik="${k}" data-cii="${i}" ${g.on?"checked":""} style="width:20px;height:20px;flex:0 0 auto">`:""}<span class="d"><b>${esc(g.n)}</b>${g.dup>1?` <span class="tag">juntou ${g.dup}</span>`:""}<br><span class="muted">${esc(g.tels.map(telFmt).join(" · ")||g.emails.join(" · ")||"sem telefone")}</span>${g.ex?`<br><span style="font-size:12px;color:#2e8b45">Já é cliente: ${esc(g.ex.nome)}</span>`:g.same?`<br><span style="font-size:12px;color:#c77700">Já existe cliente com esse nome: ${esc(g.same.nome)} · ${esc(g.same.tel||"sem telefone")}</span>`:""}</span></label>`).join("")}</div></details>`:"";
+ const m=modal(sheetHead("Análise dos contatos")+`<div class="stack">
+ <div class="tot"><div><small>Lidos</small><b class="num">${raw.length}</b></div><div><small>Novos</small><b class="num">${R.novo.length}</b></div><div><small>Já cadastrados</small><b class="num">${R.existe.length}</b></div><div class="big"><small>Repetidos juntados</small><b class="num">${dupIn}</b></div></div>
+ <p class="muted" style="margin:0;font-size:13px">Contatos com o mesmo número (mesmo escrito diferente: +55, 0, sem 9) viram um só. ${repN?`${repN===1?"1 nome aparece":repN+" nomes aparecem"} mais de uma vez com números diferentes: ficam separados, confira.`:""}</p>
+ ${sec("novo","Novos","Marcados para importar.",true)}${sec("nome","Mesmo nome de um cliente, número diferente","Pode ser a mesma pessoa com outro número. Desmarcados.",true)}
+ ${sec("existe","Já cadastrados","Mesmo número de um cliente: não serão importados de novo. O e-mail que faltar será completado.",false)}${sec("semtel","Sem telefone","Não serão importados.",false)}
+ <button class="btn pri" id="ci_ok"></button></div>`);wireClose(m);
+ const cnt=()=>{const n=R.novo.filter(g=>g.on).length+R.nome.filter(g=>g.on).length;$("#ci_ok",m).textContent=`Importar ${n} contato${n===1?"":"s"}`;$("#ci_ok",m).disabled=!n&&!R.existe.length};cnt();
+ m.querySelectorAll("[data-cik]").forEach(c=>c.onchange=()=>{R[c.dataset.cik][+c.dataset.cii].on=c.checked;cnt()});
+ const all=(k,v)=>{R[k].forEach(g=>g.on=v);m.querySelectorAll(`[data-cik="${k}"]`).forEach(c=>c.checked=v);cnt()};
+ m.querySelectorAll("[data-cia]").forEach(b=>b.onclick=e=>{e.preventDefault();all(b.dataset.cia,true)});m.querySelectorAll("[data-cin]").forEach(b=>b.onclick=e=>{e.preventDefault();all(b.dataset.cin,false)});
+ $("#ci_ok",m).onclick=()=>{let n=0,u=0;const ids=new Set();
+  [...R.novo,...R.nome].filter(g=>g.on).forEach(g=>{const tk=g.tels.filter(k=>!byTel[k]);if(!tk.length)return;let id=newId("clients");while(ids.has(id))id++;ids.add(id);
+   const c={id,nome:g.n,tel:telFmt(tk[0]),tels:tk.slice(1).map(telFmt),email:g.emails[0]||"",doc:"",end:"",uf:"PA",cidade:"",obs:"Importado dos contatos"};upsert("clients",c);tk.forEach(k=>byTel[k]=c);n++});
+  R.existe.forEach(g=>{const c=g.ex;if(!c.email&&g.emails[0]){upsert("clients",Object.assign({},c,{email:g.emails[0]}));u++}});
+  m.remove();toast(`${n} clientes importados${u?`, ${u} completados com e-mail`:""}`);render()}}
+/* clientes já cadastrados: acha repetidos por telefone ou nome e junta (orçamentos, OS, equipamentos e notas passam para o que fica) */
+function clientDupScan(){const L=DB.col.clients,par={},f=x=>par[x]==null||par[x]===x?x:(par[x]=f(par[x])),u=(a,b)=>{a=f(a);b=f(b);if(a!==b)par[b]=a};const seenT={},seenN={},why={};
+ L.forEach(c=>{par[c.id]=c.id;cliTels(c).forEach(k=>{if(seenT[k]!=null){u(seenT[k],c.id);why[c.id]="telefone"}else seenT[k]=c.id});const nk=nameKey(c.nome);if(nk.length>2){if(seenN[nk]!=null){u(seenN[nk],c.id);why[c.id]=why[c.id]||"nome"}else seenN[nk]=c.id}});
+ const g={};L.forEach(c=>{(g[f(c.id)]=g[f(c.id)]||[]).push(c)});const ig=new Set(DB.opt.dupIgn||[]);return Object.values(g).filter(a=>a.length>1&&!ig.has(a.map(c=>c.id).sort().join("-")))}
+const cliRefs=id=>["quotes","ordens","equip","notas","fin","certs"].reduce((a,k)=>a+(DB.col[k]||[]).filter(o=>o.cliId===id).length,0);
+function clientDupSheet(){const G=clientDupScan();const m=modal(sheetHead("Clientes repetidos")+`<div class="stack">${G.length?`<p class="muted" style="margin:-4px 0 0;font-size:13px">${G.length} grupo${G.length>1?"s":""} com o mesmo telefone ou o mesmo nome. Escolha qual fica: os orçamentos, OS, equipamentos e notas dos outros passam para ele, e os dados que faltam são completados.</p>
+ ${G.map((a,gi)=>`<div class="card stack" style="padding:12px">${a.map((c,i)=>`<label class="camrow" style="cursor:pointer"><input type="radio" name="dg${gi}" value="${c.id}" ${i===0?"checked":""} style="width:20px;height:20px;flex:0 0 auto"><span class="d"><b>${esc(c.nome)}</b><br><span class="muted">${esc([c.tel,c.doc,c.cidade].filter(Boolean).join(" · ")||"sem dados")} · ${cliRefs(c.id)} registros</span></span></label>`).join("")}<div class="row"><button class="btn sm pri" data-dgm="${gi}">Juntar</button><button class="btn sm ghost" data-dgk="${gi}">Não são a mesma pessoa</button></div></div>`).join("")}`
+ :`<div class="card"><p class="muted" style="margin:0">Nenhum cliente repetido.</p></div>`}</div>`);wireClose(m);
+ m.querySelectorAll("[data-dgk]").forEach(b=>b.onclick=()=>{const a=G[+b.dataset.dgk];DB.opt.dupIgn=[...(DB.opt.dupIgn||[]),a.map(c=>c.id).sort().join("-")];ls("esmp.db",DB);m.remove();clientDupSheet()});
+ m.querySelectorAll("[data-dgm]").forEach(b=>b.onclick=()=>{const gi=+b.dataset.dgm,a=G[gi],kid=+m.querySelector(`input[name="dg${gi}"]:checked`).value,keep=Object.assign({},a.find(c=>c.id===kid));
+  a.filter(c=>c.id!==kid).forEach(c=>{["tel","doc","end","num","bairro","cep","email","cidade","uf"].forEach(k=>{if(!keep[k]&&c[k])keep[k]=c[k]});const tels=new Set([...cliTels(keep)]);[c.tel,...(c.tels||[])].forEach(t=>{const k=telKey(t);if(k&&!tels.has(k)){tels.add(k);keep.tels=[...(keep.tels||[]),t]}});
+   if(c.obs&&c.obs!=="Importado dos contatos"&&!String(keep.obs||"").includes(c.obs))keep.obs=[keep.obs,c.obs].filter(Boolean).join("\n");
+   ["quotes","ordens","equip","notas","fin","certs"].forEach(k=>(DB.col[k]||[]).filter(o=>o.cliId===c.id).forEach(o=>upsert(k,Object.assign({},o,{cliId:kid}))));removeRec("clients",c.id)});
+  upsert("clients",keep);toast(`Juntado em ${keep.nome}`);m.remove();clientDupSheet();render()})}
+
 function vClients(){
  $("#main").innerHTML=`<section class="view gut"><div class="wrapc">
- <div class="hero"><div><h2>Clientes</h2><p>Os mesmos clientes do app de orçamento, usados nos orçamentos e nos projetos de CFTV.</p></div><button class="btn pri" id="c_new">+ Novo cliente</button></div>
+ <div class="hero"><div><h2>Clientes</h2><p>Os mesmos clientes do app de orçamento, usados nos orçamentos e nos projetos de CFTV.</p></div><div class="row"><button class="btn" id="c_imp">Importar contatos</button><button class="btn pri" id="c_new">+ Novo cliente</button></div></div>
+ ${(()=>{const n=clientDupScan().length;return n?`<button class="card row" id="c_dup" style="width:100%;border:0;text-align:left;justify-content:space-between;margin-bottom:12px;cursor:pointer;font:inherit;color:var(--fg)"><span><b>${n} cliente${n>1?"s":""} repetido${n>1?"s":""}</b><br><span class="muted" style="font-size:13px">Mesmo telefone ou mesmo nome. Toque para conferir e juntar.</span></span><span class="muted">›</span></button>`:""})()}
  ${posvDueCard()}<input class="in-f" id="c_s" placeholder="Pesquisar cliente, telefone, cidade ou equipamento (nome, série, IP)" value="${esc(CF.search)}" style="margin-bottom:14px"><div class="camlist" id="c_l"></div></div></section>`;
- const draw=()=>{const q=$("#c_s").value;CF.search=q;const l=DB.col.clients.filter(o=>hit(`${o.nome} ${o.tel} ${o.doc} ${o.cidade} ${o.email||""} ${eqOf(o.id).map(eqHay).join(" ")}`,q)).sort((a,b)=>norm(a.nome).localeCompare(norm(b.nome)));
+ const draw=()=>{const q=$("#c_s").value;CF.search=q;const l=DB.col.clients.filter(o=>hit(`${o.nome} ${o.tel} ${(o.tels||[]).join(" ")} ${o.doc} ${o.cidade} ${o.email||""} ${eqOf(o.id).map(eqHay).join(" ")}`,q)).sort((a,b)=>norm(a.nome).localeCompare(norm(b.nome)));
   $("#c_l").innerHTML=l.slice(0,300).map(o=>`<button class="camrow" data-c="${o.id}"><span class="n" style="background:var(--graf)">${esc((o.nome||"?").trim()[0]||"?").toUpperCase()}</span><span class="d"><b>${esc(o.nome)}</b><br><span class="muted">${esc([o.tel,o.cidade,(n=>n?n+(n>1?" equipamentos":" equipamento"):"")(eqOf(o.id).length)].filter(Boolean).join(" · "))}</span></span></button>`).join("")||`<div class="card"><p class="muted" style="margin:0">${DB.col.clients.length?"Nenhum cliente encontrado.":"Nenhum cliente ainda."}</p></div>`;
   document.querySelectorAll("[data-c]").forEach(b=>b.onclick=()=>clientSheet(DB.col.clients.find(x=>String(x.id)===b.dataset.c)))};
- $("#c_s").oninput=draw;$("#c_new").onclick=()=>clientForm(null);draw();
+ $("#c_s").oninput=draw;$("#c_new").onclick=()=>clientForm(null);$("#c_imp").onclick=contactsImport;if($("#c_dup"))$("#c_dup").onclick=clientDupSheet;draw();
  document.querySelectorAll("[data-pvo]").forEach(b=>b.onclick=()=>clientSheet(DB.col.clients.find(x=>String(x.id)===b.dataset.pvo)));
  document.querySelectorAll("[data-pvw]").forEach(b=>b.onclick=()=>posvWhats(DB.col.clients.find(x=>String(x.id)===b.dataset.pvw)));
 }
@@ -3228,7 +3301,9 @@ function clientForm(ex,onSaved){
    toast(r.descricao_situacao_cadastral&&r.descricao_situacao_cadastral!=="ATIVA"?"Atenção: CNPJ "+r.descricao_situacao_cadastral:"Dados do CNPJ preenchidos")}catch(e){toast(e.message)}};
  $("#cf_s",m).onclick=()=>{const n=$("#cf_n",m).value.trim();if(!n){toast("Informe o nome do cliente.");return}
   const o=Object.assign({},ex||{},{id:ex?ex.id:newId("clients"),nome:n,tel:$("#cf_t",m).value.trim(),doc:$("#cf_d",m).value.trim(),end:$("#cf_e",m).value.trim(),num:$("#cf_nu",m).value.trim(),bairro:$("#cf_ba",m).value.trim(),cep:$("#cf_cep",m).value.trim(),email:$("#cf_em",m).value.trim(),uf:$("#cf_uf",m).value,cidade:$("#cf_c",m).value.trim(),obs:$("#cf_o",m).value.trim()});
-  upsert("clients",o);m.remove();toast("Cliente salvo");if(onSaved)onSaved(o);else render()};
+  const go=()=>{upsert("clients",o);m.remove();toast("Cliente salvo");if(onSaved)onSaved(o);else render()};
+  const k=telKey(o.tel),dup=k&&DB.col.clients.find(c=>c.id!==o.id&&cliTels(c).includes(k))||(!ex&&DB.col.clients.find(c=>nameKey(c.nome)===nameKey(o.nome)));
+  if(dup)confirmSheet("Cliente parecido já existe",`${dup.nome} · ${dup.tel||"sem telefone"}. Salvar mesmo assim?`,"Salvar mesmo assim",go);else go()};
 }
 function clientPick(cb){
  const m=modal(sheetHead("Escolher cliente")+`<input class="in-f" id="pk_cq" placeholder="Pesquisar cliente"><div class="camlist" id="pk_cl" style="margin-top:12px"></div><button class="btn sm" id="pk_cn" style="margin-top:12px">+ Novo cliente</button>`);wireClose(m);
