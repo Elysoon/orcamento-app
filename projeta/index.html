@@ -653,7 +653,7 @@ const uid=()=>Math.random().toString(36).slice(2,9);
 const today=()=>{const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10)};
 const fmtDate=d=>{if(!d)return"";const[y,m,dd]=d.split("-");return`${dd}/${m}/${y}`};
 let toastT;function toast(m){let t=$(".toast");if(!t){t=document.createElement("div");t.className="toast";document.body.appendChild(t)}t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2600)}
-const APP_VER="3.4.3";
+const APP_VER="3.5.0";
 function remoteVer(){const base=location.protocol==="https:"?location.origin+location.pathname.replace(/[^/]*$/,""):"https://elysoon.github.io/orcamento-app/projeta/";
  return fetch(base+"versao.json?nc="+Date.now(),{cache:"no-store"}).then(r=>r.ok?r.json():null).then(j=>j&&j.v||"").catch(()=>"")}
 /* versão do GitHub: se a publicada for mais nova que a aberta, recarrega uma vez sem cache */
@@ -2101,7 +2101,7 @@ async function exportPDF(){
 }
 function toB64(data){return new Promise(res=>{const b=data instanceof Blob?data:new Blob([data]);const r=new FileReader();r.onload=()=>res(String(r.result).split(",")[1]);r.readAsDataURL(b)})}
 let dl;async function saveFile(name,data){
- if(window.ESMAndroid&&ESMAndroid.saveFile){try{const mime=name.endsWith(".pdf")?"application/pdf":name.endsWith(".csv")?"text/csv":"application/json";const msg=ESMAndroid.saveFile(name,await toB64(data),mime);toast(msg||"Arquivo salvo em Downloads")}catch(_){toast("Não foi possível salvar o arquivo")}return}
+ if(window.ESMAndroid&&ESMAndroid.saveFile){try{const mime=name.endsWith(".pdf")?"application/pdf":name.endsWith(".csv")?"text/csv":name.endsWith(".vcf")?"text/x-vcard":"application/json";const msg=ESMAndroid.saveFile(name,await toB64(data),mime);toast(msg||"Arquivo salvo em Downloads")}catch(_){toast("Não foi possível salvar o arquivo")}return}
  try{dl=dl||await window.claude?.use?.("downloads")}catch(_){dl=null}
  if(!dl){toast("Para salvar arquivos, abra este app pelo Claude (web ou celular).");return}
  try{await dl.save({filename:name,data});toast("Arquivo salvo")}catch(e){toast(e.code==="declined"?"Download cancelado":e.code==="rate_limited"?"Aguarde a confirmação anterior":"Não foi possível salvar o arquivo")}
@@ -2733,6 +2733,7 @@ function quotePages(q){
 
 /* ---------- novidades ---------- */
 const NEWS={feitos:[
+ ["Contatos nos dois sentidos","Importar só traz os contatos que ainda não estão no app (confere a nuvem antes). Novo: Do app para o celular, que gera o arquivo de contatos só com os clientes que ainda não estão na agenda.","Pedido seu"],
  ["Importar contatos","Em Clientes: traga todos os contatos do celular (ou um arquivo .vcf). O app junta números repetidos (com ou sem +55, 0 ou 9), separa os que já são clientes e mostra a análise antes de salvar. Também acha clientes repetidos e junta com orçamentos, OS e equipamentos.","Pedido seu"],
  ["Modelo Impactante removido","Quem usava passa para o Executivo.","Pedido seu"],
  ["OS de vários dias com a equipe","Na ordem de serviço: começa em / termina em e quem da equipe trabalha nela. Cada dia entra como diária no calendário do colaborador, ligado à OS, e a OS aparece em todos os dias no calendário.","Pedido seu"],
@@ -3208,19 +3209,34 @@ function groupContacts(list){const par=list.map((_,i)=>i),f=i=>par[i]===i?i:(par
   const n=arr.map(c=>c.n.trim()).filter(Boolean).sort((a,b)=>b.length-a.length)[0]||(tk[0]?telFmt(tk[0]):"Sem nome");return{n,tels:tk,emails:em,dup:arr.length}})}
 /* versão do app Android instalado, descoberta pelas funções que ele tem */
 const nativeVer=()=>{const A=window.ESMAndroid;if(!A)return"";return A.contacts?"2.6.0":A.http2?"2.5.0":"2.4 ou anterior"};
+/* clientes do app → contatos do celular (arquivo .vcf que o app Contatos importa) */
+const vEsc=t=>String(t||"").replace(/\\/g,"\\\\").replace(/\n/g,"\\n").replace(/[,;]/g,m=>"\\"+m);
+function clientsVcf(L){return L.map(c=>{const tels=[c.tel,...(c.tels||[])].filter(t=>telKey(t));const nm=String(c.nome||"").trim();const sp=nm.lastIndexOf(" ");
+ return["BEGIN:VCARD","VERSION:3.0",`N:${vEsc(sp>0?nm.slice(sp+1):nm)};${vEsc(sp>0?nm.slice(0,sp):"")};;;`,`FN:${vEsc(nm)}`,...tels.map(t=>`TEL;TYPE=CELL:+55${telKey(t)}`),...(c.email?[`EMAIL;TYPE=INTERNET:${vEsc(c.email)}`]:[]),...(c.end||c.cidade?[`ADR;TYPE=WORK:;;${vEsc([c.end,c.num].filter(Boolean).join(", "))};${vEsc(c.cidade)};${vEsc(c.uf)};${vEsc(c.cep)};Brasil`]:[]),...(c.doc?[`NOTE:${vEsc("CPF/CNPJ "+c.doc)}`]:[]),"END:VCARD"].join("\r\n")}).join("\r\n")+"\r\n"}
+function contactsExport(){const nat=!!(window.ESMAndroid&&ESMAndroid.contacts);const base=DB.col.clients.filter(c=>cliTels(c).length);
+ const go=phoneKeys=>{const notPhone=c=>phoneKeys?!cliTels(c).some(k=>phoneKeys.has(k)):c.src!=="cel"&&c.obs!=="Importado dos contatos";
+  const novos=base.filter(c=>notPhone(c)&&!c.vcfOut),fora=base.filter(notPhone);
+  const m=modal(sheetHead("Salvar clientes no celular")+`<div class="stack"><p class="muted" style="margin:-4px 0 0;font-size:13px">${phoneKeys?`Comparei com a agenda do celular: <b>${fora.length}</b> clientes ainda não estão nela.`:`Clientes que não vieram da agenda do celular: <b>${fora.length}</b>.`}</p>
+  <button class="camrow" id="ce_n" ${novos.length?"":"disabled"}><span class="d"><b>Só os que ainda não mandei (${novos.length})</b><br><span class="muted">Clientes novos desde a última vez.</span></span></button>
+  <button class="camrow" id="ce_f" ${fora.length?"":"disabled"}><span class="d"><b>Todos que não estão no celular (${fora.length})</b></span></button>
+  <p class="muted" style="margin:0;font-size:12.5px">${nat?"O app Contatos abre para você confirmar.":"O arquivo fica em Documentos/ESM Projeta. No app Contatos: Configurações → Importar → arquivo .vcf → escolha o arquivo."}</p></div>`);wireClose(m);
+  const ex=L=>{if(!L.length)return;saveFile(`Clientes_ESM_${today()}.vcf`,clientsVcf(L));const t=today();upsertMany("clients",L.map(c=>Object.assign({},c,{vcfOut:t})));m.remove();toast(`${L.length} clientes no arquivo de contatos`)};
+  $("#ce_n",m).onclick=()=>ex(novos);$("#ce_f",m).onclick=()=>ex(fora)};
+ if(nat){window.__contactsDone=(b64,denied)=>{window.__contactsDone=null;if(denied){go(null);return}let L=[];try{L=JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(b64||""),c=>c.charCodeAt(0)))||"[]")}catch(_){}go(new Set(L.flatMap(c=>(c.tels||[]).map(telKey)).filter(Boolean)))};toast("Lendo a agenda…");ESMAndroid.contacts()}else go(null)}
 function contactsImport(){const nat=!!(window.ESMAndroid&&ESMAndroid.contacts);const m=modal(sheetHead("Importar contatos")+`<div class="stack">
  ${nat?`<button class="camrow" id="ci_ph"><span class="n" style="background:var(--graf)">☎</span><span class="d"><b>Todos os contatos do celular</b><br><span class="muted">O app pede permissão para ler a agenda.</span></span></button>`
  :`<div class="card" style="padding:12px;border-left:4px solid #c77700"><b>Ler a agenda direto: falta compilar o app</b><br><span class="muted" style="font-size:13px">${window.ESMAndroid?`App Android instalado: <b>${nativeVer()}</b> (as telas estão na ${APP_VER}, mas o aplicativo compilado é outro número). Precisa do app <b>2.6.0</b>.`:"No navegador não dá para ler a agenda."} Ler os contatos precisa de uma permissão do Android que só entra compilando: no Code on the Go, abra o projeto esm-projeta, faça <b>Git Pull</b> e toque em <b>▶</b>. Enquanto isso, use o arquivo .vcf abaixo, que funciona agora.</span></div>`}
  <button class="camrow" id="ci_vf"><span class="n" style="background:var(--graf)">⇪</span><span class="d"><b>Arquivo de contatos (.vcf)</b><br><span class="muted">No app Contatos: Configurações → Exportar → arquivo .vcf.</span></span></button>
  <input type="file" id="ci_f" accept=".vcf,text/vcard,text/x-vcard" multiple hidden>
- <p class="muted" style="margin:0;font-size:12.5px">Nada entra direto: você vê a análise (novos, repetidos e já cadastrados) e escolhe o que salvar. Os contatos não saem do seu celular, só vão para a sua lista de clientes.</p></div>`);wireClose(m);
+ <p class="muted" style="margin:0;font-size:12.5px">Nada entra direto: você vê a análise e só os contatos que ainda não estão no app são salvos.</p>
+ <button class="camrow" id="ci_ex" style="margin-top:4px"><span class="n" style="background:var(--red)">⇩</span><span class="d"><b>Do app para o celular</b><br><span class="muted">Salva na agenda os clientes que ainda não estão nela.</span></span></button></div>`);wireClose(m);$("#ci_ex",m).onclick=()=>{m.remove();contactsExport()};
  if($("#ci_ph",m))$("#ci_ph",m).onclick=()=>{
   window.__contactsDone=(b64,denied)=>{window.__contactsDone=null;if(denied){toast("Permissão de contatos negada. Libere em Configurações do Android → Apps → ESM Projeta → Permissões.");return}
    let L=[];try{L=JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(b64||""),c=>c.charCodeAt(0)))||"[]")}catch(_){}if(!L.length){toast("Nenhum contato encontrado.");return}m.remove();contactsReview(L)};
   toast("Lendo contatos…");ESMAndroid.contacts()};
  $("#ci_vf",m).onclick=()=>$("#ci_f",m).click();
  $("#ci_f",m).onchange=async e=>{let L=[];for(const f of e.target.files)L=L.concat(parseVCF(await f.text()));if(!L.length){toast("Não achei contatos nesse arquivo.");return}m.remove();contactsReview(L)}}
-function contactsReview(raw){const G=groupContacts(raw.map(c=>({n:String(c.n||""),tels:(c.tels||[]).map(String),emails:(c.emails||[]).map(String)})));
+async function contactsReview(raw){if(typeof authCloud==="function"&&authCloud()){toast("Conferindo os clientes da nuvem…");try{await runSync(false)}catch(_){}}const G=groupContacts(raw.map(c=>({n:String(c.n||""),tels:(c.tels||[]).map(String),emails:(c.emails||[]).map(String)})));
  const byTel={},byName={};DB.col.clients.forEach(c=>{cliTels(c).forEach(k=>byTel[k]=c);const nk=nameKey(c.nome);if(nk)(byName[nk]=byName[nk]||[]).push(c)});
  const R={novo:[],existe:[],nome:[],semtel:[]};const newNames={};
  G.forEach(g=>{const ex=g.tels.map(k=>byTel[k]).find(Boolean);if(ex){g.ex=ex;R.existe.push(g);return}if(!g.tels.length){R.semtel.push(g);return}
@@ -3231,7 +3247,7 @@ function contactsReview(raw){const G=groupContacts(raw.map(c=>({n:String(c.n||""
   <div class="camlist" style="margin-top:6px" data-cil="${k}">${R[k].slice(0,LIM[k]).map((g,i)=>`<label class="camrow" style="cursor:${chk?"pointer":"default"}">${chk?`<input type="checkbox" data-cik="${k}" data-cii="${i}" ${g.on?"checked":""} style="width:20px;height:20px;flex:0 0 auto">`:""}<span class="d"><b>${esc(g.n)}</b>${g.dup>1?` <span class="tag">juntou ${g.dup}</span>`:""}<br><span class="muted">${esc(g.tels.map(telFmt).join(" · ")||g.emails.join(" · ")||"sem telefone")}</span>${g.ex?`<br><span style="font-size:12px;color:#2e8b45">Já é cliente: ${esc(g.ex.nome)}</span>`:g.same?`<br><span style="font-size:12px;color:#c77700">Já existe cliente com esse nome: ${esc(g.same.nome)} · ${esc(g.same.tel||"sem telefone")}</span>`:""}</span></label>`).join("")}</div>${R[k].length>LIM[k]?`<button class="btn sm ghost" data-cim="${k}" style="margin-top:8px">Mostrar mais ${Math.min(200,R[k].length-LIM[k])} de ${R[k].length-LIM[k]} (os escondidos seguem ${chk?"marcados como estão":"na mesma regra"})</button>`:""}</details>`:"";
  const m=modal("");const draw=()=>{const sy=m.querySelector(".sheet").scrollTop;m.querySelector(".sheet").innerHTML=sheetHead("Análise dos contatos")+`<div class="stack">
  <div class="tot"><div><small>Lidos</small><b class="num">${raw.length}</b></div><div><small>Novos</small><b class="num">${R.novo.length}</b></div><div><small>Já cadastrados</small><b class="num">${R.existe.length}</b></div><div class="big"><small>Repetidos juntados</small><b class="num">${dupIn}</b></div></div>
- <p class="muted" style="margin:0;font-size:13px">Contatos com o mesmo número (mesmo escrito diferente: +55, 0, sem 9) viram um só. ${repN?`${repN===1?"1 nome aparece":repN+" nomes aparecem"} mais de uma vez com números diferentes: ficam separados, confira.`:""}</p>
+ <p class="muted" style="margin:0;font-size:13px"><b>Só entram os que ainda não estão no app.</b> Os ${R.existe.length} já salvos ficam como estão. Contatos com o mesmo número (mesmo escrito diferente: +55, 0, sem 9) viram um só. ${repN?`${repN===1?"1 nome aparece":repN+" nomes aparecem"} mais de uma vez com números diferentes: ficam separados, confira.`:""}</p>
  ${sec("novo","Novos","Marcados para importar.",true)}${sec("nome","Mesmo nome de um cliente, número diferente","Pode ser a mesma pessoa com outro número. Desmarcados.",true)}
  ${sec("existe","Já cadastrados","Mesmo número de um cliente: não serão importados de novo. O e-mail que faltar será completado.",false)}${sec("semtel","Sem telefone","Não serão importados.",false)}
  <button class="btn pri" id="ci_ok"></button></div>`;wireClose(m);m.querySelector(".sheet").scrollTop=sy;
@@ -3242,7 +3258,7 @@ function contactsReview(raw){const G=groupContacts(raw.map(c=>({n:String(c.n||""
  m.querySelectorAll("[data-cim]").forEach(b=>b.onclick=e=>{e.preventDefault();LIM[b.dataset.cim]+=200;draw()});
  $("#ci_ok",m).onclick=()=>{const b=$("#ci_ok",m);b.disabled=true;b.textContent="Salvando…";setTimeout(()=>{let n=0,u=0,id=newId("clients");const out=[];
   [...R.novo,...R.nome].filter(g=>g.on).forEach(g=>{const tk=g.tels.filter(k=>!byTel[k]);if(!tk.length)return;
-   const c={id:id++,nome:g.n,tel:telFmt(tk[0]),tels:tk.slice(1).map(telFmt),email:g.emails[0]||"",doc:"",end:"",uf:"PA",cidade:"",obs:"Importado dos contatos"};out.push(c);tk.forEach(k=>byTel[k]=c);n++});
+   const c={id:id++,nome:g.n,tel:telFmt(tk[0]),tels:tk.slice(1).map(telFmt),email:g.emails[0]||"",doc:"",end:"",uf:"PA",cidade:"",obs:"Importado dos contatos",src:"cel"};out.push(c);tk.forEach(k=>byTel[k]=c);n++});
   R.existe.forEach(g=>{const c=g.ex;if(!c.email&&g.emails[0]){out.push(Object.assign({},c,{email:g.emails[0]}));u++}});
   upsertMany("clients",out);m.remove();toast(`${n} clientes importados${u?`, ${u} completados com e-mail`:""}`);render()},30)}};draw()}
 /* clientes já cadastrados: acha repetidos por telefone ou nome e junta (orçamentos, OS, equipamentos e notas passam para o que fica) */
