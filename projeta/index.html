@@ -653,7 +653,7 @@ const uid=()=>Math.random().toString(36).slice(2,9);
 const today=()=>{const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10)};
 const fmtDate=d=>{if(!d)return"";const[y,m,dd]=d.split("-");return`${dd}/${m}/${y}`};
 let toastT;function toast(m){let t=$(".toast");if(!t){t=document.createElement("div");t.className="toast";document.body.appendChild(t)}t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2600)}
-const APP_VER="3.4.2";
+const APP_VER="3.4.3";
 function remoteVer(){const base=location.protocol==="https:"?location.origin+location.pathname.replace(/[^/]*$/,""):"https://elysoon.github.io/orcamento-app/projeta/";
  return fetch(base+"versao.json?nc="+Date.now(),{cache:"no-store"}).then(r=>r.ok?r.json():null).then(j=>j&&j.v||"").catch(()=>"")}
 /* versão do GitHub: se a publicada for mais nova que a aberta, recarrega uma vez sem cache */
@@ -2124,6 +2124,8 @@ function initOrcData(){
 function newId(k){let id=Date.now();for(const o of DB.col[k])if(+o.id>=id)id=+o.id+1;return id}
 function persist(){ls("esmp.db",DB);syncChanged();scheduleReminders()}
 function upsert(k,o){o.ts=Date.now();const a=DB.col[k],i=a.findIndex(x=>x.id===o.id);if(i>=0)a[i]=o;else a.push(o);persist()}
+/* vários registros de uma vez: grava e sincroniza uma vez só (importar 2.000 contatos não trava) */
+function upsertMany(k,list){if(!list.length)return;const a=DB.col[k],idx=new Map(a.map((x,i)=>[x.id,i])),t=Date.now();list.forEach(o=>{o.ts=t;const i=idx.get(o.id);if(i!=null)a[i]=o;else{idx.set(o.id,a.length);a.push(o)}});persist()}
 function removeRec(k,id){DB.col[k]=DB.col[k].filter(x=>x.id!==id);markDel(k,id)}
 function markDel(k,id){DB.del[k]=DB.del[k].filter(x=>x.id!==id);DB.del[k].push({id,ts:Date.now()});persist()}
 function cfgChanged(){DB.cfgTs=Date.now();applyBrand();persist()}
@@ -2299,15 +2301,18 @@ async function doSync(){
 async function mergeCol(uid,col,arr,del){
  const base=`empresas/${uid}/colecoes/${col}`;const cloud=(await dbReq("GET",base))||{};
  const loc=new Map(arr.map(o=>[String(o.id),o])),dl=new Map(del.map(o=>[String(o.id),o]));
- const ids=new Set([...Object.keys(cloud),...loc.keys(),...dl.keys()]);let pushed=0,pulled=0;
+ const ids=new Set([...Object.keys(cloud),...loc.keys(),...dl.keys()]);let pushed=0,pulled=0;const batch={};
  for(const id of ids){
   const c=cloud[id],l=loc.get(id),d=dl.get(id);const lts=l?(l.ts||0):-1,dts=d?(d.ts||0):-1;
   const lDel=!!d&&dts>=lts,lEff=lDel?dts:lts;if(lDel)loc.delete(id);
   const hasLocal=!!l||!!d,cts=c?(c.ts||0):-1,cDel=!!c&&!!c.del;
   if(!hasLocal){if(c&&!cDel&&c.d){try{loc.set(id,JSON.parse(c.d));pulled++}catch(_){}}continue}
-  if(!c||lEff>cts){const put={ts:lEff,del:lDel};if(!lDel)put.d=JSON.stringify(l);await dbReq("PUT",`${base}/${id}`,put);pushed++}
+  if(!c||lEff>cts){const put={ts:lEff,del:lDel};if(!lDel)put.d=JSON.stringify(l);batch[id]=put;pushed++}
   else if(cts>lEff){if(cDel){loc.delete(id);dl.set(id,{id:isNaN(+id)?id:+id,ts:cts})}else if(c.d){try{loc.set(id,JSON.parse(c.d));dl.delete(id)}catch(_){}}pulled++}
  }
+ /* envia em lotes (uma requisição para até 200 registros) em vez de uma por registro */
+ const keys=Object.keys(batch);for(let i=0;i<keys.length;i+=200){const part={};keys.slice(i,i+200).forEach(k=>part[k]=batch[k]);
+  if(keys.length===1){await dbReq("PUT",`${base}/${keys[0]}`,part[keys[0]])}else{const t=await token();const r=await http("POST",`${FB.dbUrl}/${base}.json?auth=${encodeURIComponent(t)}&x-http-method-override=PATCH`,JSON.stringify(part));if(!r.code)throw new AuthErr(NET);if(r.code<200||r.code>=300)throw new AuthErr(`Erro no banco de dados (${r.code}).`)}}
  return{arr:[...loc.values()],del:[...dl.values()],pushed,pulled};
 }
 function localCfg(){const co=DB.company;return{nome:co.name,razao:co.razao,desc:co.desc,end:co.end,tel:co.phone,email:co.email,doc:co.cnpj,insc:co.insc,cab:co.site,insta:co.insta,cidade:co.city,resp:co.resp,ask:DB.opt.ask,lines:DB.opt.lines,noseq:DB.opt.noseq,cur:DB.opt.cur,seq:DB.qseq,libPrice:DB.libPrice,pix:co.pix,pixNome:co.pixNome,pixCidade:co.pixCidade,assin:co.assin,cond:co.cond,payLink:co.payLink,equipe:co.equipe,checklist:co.checklist,propUrl:co.propUrl,oseq:DB.oseq}}
@@ -3221,24 +3226,25 @@ function contactsReview(raw){const G=groupContacts(raw.map(c=>({n:String(c.n||""
  G.forEach(g=>{const ex=g.tels.map(k=>byTel[k]).find(Boolean);if(ex){g.ex=ex;R.existe.push(g);return}if(!g.tels.length){R.semtel.push(g);return}
   const nk=nameKey(g.n);if(byName[nk]){g.same=byName[nk][0];R.nome.push(g);return}g.on=true;R.novo.push(g);(newNames[nk]=newNames[nk]||[]).push(g)});
  const dupIn=G.filter(g=>g.dup>1).length,repN=Object.values(newNames).filter(a=>a.length>1).length;
- const sec=(k,t,sub,chk)=>R[k].length?`<details ${k==="novo"||k==="nome"?"open":""} class="card" style="padding:12px"><summary style="cursor:pointer"><b>${t} (${R[k].length})</b><br><span class="muted" style="font-size:12.5px">${sub}</span></summary>
+ const LIM={novo:150,nome:150,existe:60,semtel:40};const sec=(k,t,sub,chk)=>R[k].length?`<details ${k==="novo"||k==="nome"?"open":""} class="card" style="padding:12px"><summary style="cursor:pointer"><b>${t} (${R[k].length})</b><br><span class="muted" style="font-size:12.5px">${sub}</span></summary>
   ${chk?`<div class="row" style="margin:8px 0"><button class="btn sm ghost" data-cia="${k}">Marcar todos</button><button class="btn sm ghost" data-cin="${k}">Desmarcar todos</button></div>`:""}
-  <div class="camlist" style="margin-top:6px">${R[k].slice(0,1500).map((g,i)=>`<label class="camrow" style="cursor:${chk?"pointer":"default"}">${chk?`<input type="checkbox" data-cik="${k}" data-cii="${i}" ${g.on?"checked":""} style="width:20px;height:20px;flex:0 0 auto">`:""}<span class="d"><b>${esc(g.n)}</b>${g.dup>1?` <span class="tag">juntou ${g.dup}</span>`:""}<br><span class="muted">${esc(g.tels.map(telFmt).join(" · ")||g.emails.join(" · ")||"sem telefone")}</span>${g.ex?`<br><span style="font-size:12px;color:#2e8b45">Já é cliente: ${esc(g.ex.nome)}</span>`:g.same?`<br><span style="font-size:12px;color:#c77700">Já existe cliente com esse nome: ${esc(g.same.nome)} · ${esc(g.same.tel||"sem telefone")}</span>`:""}</span></label>`).join("")}</div></details>`:"";
- const m=modal(sheetHead("Análise dos contatos")+`<div class="stack">
+  <div class="camlist" style="margin-top:6px" data-cil="${k}">${R[k].slice(0,LIM[k]).map((g,i)=>`<label class="camrow" style="cursor:${chk?"pointer":"default"}">${chk?`<input type="checkbox" data-cik="${k}" data-cii="${i}" ${g.on?"checked":""} style="width:20px;height:20px;flex:0 0 auto">`:""}<span class="d"><b>${esc(g.n)}</b>${g.dup>1?` <span class="tag">juntou ${g.dup}</span>`:""}<br><span class="muted">${esc(g.tels.map(telFmt).join(" · ")||g.emails.join(" · ")||"sem telefone")}</span>${g.ex?`<br><span style="font-size:12px;color:#2e8b45">Já é cliente: ${esc(g.ex.nome)}</span>`:g.same?`<br><span style="font-size:12px;color:#c77700">Já existe cliente com esse nome: ${esc(g.same.nome)} · ${esc(g.same.tel||"sem telefone")}</span>`:""}</span></label>`).join("")}</div>${R[k].length>LIM[k]?`<button class="btn sm ghost" data-cim="${k}" style="margin-top:8px">Mostrar mais ${Math.min(200,R[k].length-LIM[k])} de ${R[k].length-LIM[k]} (os escondidos seguem ${chk?"marcados como estão":"na mesma regra"})</button>`:""}</details>`:"";
+ const m=modal("");const draw=()=>{const sy=m.querySelector(".sheet").scrollTop;m.querySelector(".sheet").innerHTML=sheetHead("Análise dos contatos")+`<div class="stack">
  <div class="tot"><div><small>Lidos</small><b class="num">${raw.length}</b></div><div><small>Novos</small><b class="num">${R.novo.length}</b></div><div><small>Já cadastrados</small><b class="num">${R.existe.length}</b></div><div class="big"><small>Repetidos juntados</small><b class="num">${dupIn}</b></div></div>
  <p class="muted" style="margin:0;font-size:13px">Contatos com o mesmo número (mesmo escrito diferente: +55, 0, sem 9) viram um só. ${repN?`${repN===1?"1 nome aparece":repN+" nomes aparecem"} mais de uma vez com números diferentes: ficam separados, confira.`:""}</p>
  ${sec("novo","Novos","Marcados para importar.",true)}${sec("nome","Mesmo nome de um cliente, número diferente","Pode ser a mesma pessoa com outro número. Desmarcados.",true)}
  ${sec("existe","Já cadastrados","Mesmo número de um cliente: não serão importados de novo. O e-mail que faltar será completado.",false)}${sec("semtel","Sem telefone","Não serão importados.",false)}
- <button class="btn pri" id="ci_ok"></button></div>`);wireClose(m);
+ <button class="btn pri" id="ci_ok"></button></div>`;wireClose(m);m.querySelector(".sheet").scrollTop=sy;
  const cnt=()=>{const n=R.novo.filter(g=>g.on).length+R.nome.filter(g=>g.on).length;$("#ci_ok",m).textContent=`Importar ${n} contato${n===1?"":"s"}`;$("#ci_ok",m).disabled=!n&&!R.existe.length};cnt();
  m.querySelectorAll("[data-cik]").forEach(c=>c.onchange=()=>{R[c.dataset.cik][+c.dataset.cii].on=c.checked;cnt()});
  const all=(k,v)=>{R[k].forEach(g=>g.on=v);m.querySelectorAll(`[data-cik="${k}"]`).forEach(c=>c.checked=v);cnt()};
  m.querySelectorAll("[data-cia]").forEach(b=>b.onclick=e=>{e.preventDefault();all(b.dataset.cia,true)});m.querySelectorAll("[data-cin]").forEach(b=>b.onclick=e=>{e.preventDefault();all(b.dataset.cin,false)});
- $("#ci_ok",m).onclick=()=>{let n=0,u=0;const ids=new Set();
-  [...R.novo,...R.nome].filter(g=>g.on).forEach(g=>{const tk=g.tels.filter(k=>!byTel[k]);if(!tk.length)return;let id=newId("clients");while(ids.has(id))id++;ids.add(id);
-   const c={id,nome:g.n,tel:telFmt(tk[0]),tels:tk.slice(1).map(telFmt),email:g.emails[0]||"",doc:"",end:"",uf:"PA",cidade:"",obs:"Importado dos contatos"};upsert("clients",c);tk.forEach(k=>byTel[k]=c);n++});
-  R.existe.forEach(g=>{const c=g.ex;if(!c.email&&g.emails[0]){upsert("clients",Object.assign({},c,{email:g.emails[0]}));u++}});
-  m.remove();toast(`${n} clientes importados${u?`, ${u} completados com e-mail`:""}`);render()}}
+ m.querySelectorAll("[data-cim]").forEach(b=>b.onclick=e=>{e.preventDefault();LIM[b.dataset.cim]+=200;draw()});
+ $("#ci_ok",m).onclick=()=>{const b=$("#ci_ok",m);b.disabled=true;b.textContent="Salvando…";setTimeout(()=>{let n=0,u=0,id=newId("clients");const out=[];
+  [...R.novo,...R.nome].filter(g=>g.on).forEach(g=>{const tk=g.tels.filter(k=>!byTel[k]);if(!tk.length)return;
+   const c={id:id++,nome:g.n,tel:telFmt(tk[0]),tels:tk.slice(1).map(telFmt),email:g.emails[0]||"",doc:"",end:"",uf:"PA",cidade:"",obs:"Importado dos contatos"};out.push(c);tk.forEach(k=>byTel[k]=c);n++});
+  R.existe.forEach(g=>{const c=g.ex;if(!c.email&&g.emails[0]){out.push(Object.assign({},c,{email:g.emails[0]}));u++}});
+  upsertMany("clients",out);m.remove();toast(`${n} clientes importados${u?`, ${u} completados com e-mail`:""}`);render()},30)}};draw()}
 /* clientes já cadastrados: acha repetidos por telefone ou nome e junta (orçamentos, OS, equipamentos e notas passam para o que fica) */
 function clientDupScan(){const L=DB.col.clients,par={},f=x=>par[x]==null||par[x]===x?x:(par[x]=f(par[x])),u=(a,b)=>{a=f(a);b=f(b);if(a!==b)par[b]=a};const seenT={},seenN={},why={};
  L.forEach(c=>{par[c.id]=c.id;cliTels(c).forEach(k=>{if(seenT[k]!=null){u(seenT[k],c.id);why[c.id]="telefone"}else seenT[k]=c.id});const nk=nameKey(c.nome);if(nk.length>2){if(seenN[nk]!=null){u(seenN[nk],c.id);why[c.id]=why[c.id]||"nome"}else seenN[nk]=c.id}});
