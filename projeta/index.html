@@ -653,7 +653,7 @@ const uid=()=>Math.random().toString(36).slice(2,9);
 const today=()=>{const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,10)};
 const fmtDate=d=>{if(!d)return"";const[y,m,dd]=d.split("-");return`${dd}/${m}/${y}`};
 let toastT;function toast(m){let t=$(".toast");if(!t){t=document.createElement("div");t.className="toast";document.body.appendChild(t)}t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2600)}
-const APP_VER="3.4.0";
+const APP_VER="3.4.1";
 function remoteVer(){const base=location.protocol==="https:"?location.origin+location.pathname.replace(/[^/]*$/,""):"https://elysoon.github.io/orcamento-app/projeta/";
  return fetch(base+"versao.json?nc="+Date.now(),{cache:"no-store"}).then(r=>r.ok?r.json():null).then(j=>j&&j.v||"").catch(()=>"")}
 /* versão do GitHub: se a publicada for mais nova que a aberta, recarrega uma vez sem cache */
@@ -3201,12 +3201,13 @@ function groupContacts(list){const par=list.map((_,i)=>i),f=i=>par[i]===i?i:(par
  const g={};list.forEach((c,i)=>{(g[f(i)]=g[f(i)]||[]).push(c)});
  return Object.values(g).map(arr=>{const tk=[...new Set(arr.flatMap(c=>c.tels.map(telKey)).filter(Boolean))],em=[...new Set(arr.flatMap(c=>c.emails.map(e=>e.toLowerCase().trim())).filter(Boolean))];
   const n=arr.map(c=>c.n.trim()).filter(Boolean).sort((a,b)=>b.length-a.length)[0]||(tk[0]?telFmt(tk[0]):"Sem nome");return{n,tels:tk,emails:em,dup:arr.length}})}
-function contactsImport(){const m=modal(sheetHead("Importar contatos")+`<div class="stack">
- <button class="camrow" id="ci_ph"><span class="n" style="background:var(--graf)">☎</span><span class="d"><b>Todos os contatos do celular</b><br><span class="muted">O app pede permissão para ler a agenda.</span></span></button>
+function contactsImport(){const nat=!!(window.ESMAndroid&&ESMAndroid.contacts);const m=modal(sheetHead("Importar contatos")+`<div class="stack">
+ ${nat?`<button class="camrow" id="ci_ph"><span class="n" style="background:var(--graf)">☎</span><span class="d"><b>Todos os contatos do celular</b><br><span class="muted">O app pede permissão para ler a agenda.</span></span></button>`
+ :`<div class="card" style="padding:12px;border-left:4px solid #c77700"><b>Ler a agenda direto: falta compilar o app</b><br><span class="muted" style="font-size:13px">O app instalado no seu celular é anterior à versão 2.6.0. Ler os contatos precisa de uma permissão do Android que só entra compilando: no Code on the Go, abra o projeto esm-projeta, faça <b>Git Pull</b> e toque em <b>▶</b>. Enquanto isso, use o arquivo .vcf abaixo, que funciona agora.</span></div>`}
  <button class="camrow" id="ci_vf"><span class="n" style="background:var(--graf)">⇪</span><span class="d"><b>Arquivo de contatos (.vcf)</b><br><span class="muted">No app Contatos: Configurações → Exportar → arquivo .vcf.</span></span></button>
  <input type="file" id="ci_f" accept=".vcf,text/vcard,text/x-vcard" multiple hidden>
  <p class="muted" style="margin:0;font-size:12.5px">Nada entra direto: você vê a análise (novos, repetidos e já cadastrados) e escolhe o que salvar. Os contatos não saem do seu celular, só vão para a sua lista de clientes.</p></div>`);wireClose(m);
- $("#ci_ph",m).onclick=()=>{if(!(window.ESMAndroid&&ESMAndroid.contacts)){toast(window.ESMAndroid?"Para ler a agenda direto, compile o app de novo (git pull + ▶). Por enquanto use o arquivo .vcf.":"No navegador, use o arquivo .vcf.");return}
+ if($("#ci_ph",m))$("#ci_ph",m).onclick=()=>{
   window.__contactsDone=(b64,denied)=>{window.__contactsDone=null;if(denied){toast("Permissão de contatos negada. Libere em Configurações do Android → Apps → ESM Projeta → Permissões.");return}
    let L=[];try{L=JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(b64||""),c=>c.charCodeAt(0)))||"[]")}catch(_){}if(!L.length){toast("Nenhum contato encontrado.");return}m.remove();contactsReview(L)};
   toast("Lendo contatos…");ESMAndroid.contacts()};
